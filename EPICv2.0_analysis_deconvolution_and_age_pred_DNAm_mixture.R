@@ -382,6 +382,34 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 
 write_xlsx(MAE_predicted_age, paste0(results_path, "2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_M_value_08-11-2024.xlsx"))
 
+
+
+##Check missing CpGs
+missing_df <- data.frame(matrix(nrow=ncol(betas_cg_autosomal_collps_no_NAs), ncol=4))
+colnames(missing_df) <- c("BLUP", "EN", "Horvath", "skinHorvath")
+
+n <- 1
+sample <- colnames(betas_cg_autosomal_collps_no_NAs)[1]
+betas_cg_autosomal_collps_no_NAs <- data.frame(RowNames = rownames(betas_cg_autosomal_collps_no_NAs), betas_cg_autosomal_collps_no_NAs)
+for (sample in colnames(betas_cg_autosomal_collps_no_NAs[-1])){
+  betas_cg_collapsed_ind <- betas_cg_autosomal_collps_no_NAs[, c("RowNames",sample)]
+  #betas_cg_collapsed_ind <- betas_cg_collapsed_ind[!is.na(betas_cg_collapsed_ind[,2]),]
+  
+  cpgs.missing <- checkClocks(betas_cg_collapsed_ind)
+  missing_df[n,] <- c(length(cpgs.missing[[8]]), length(cpgs.missing[[9]]),
+                      length(cpgs.missing[[1]]), length(cpgs.missing[[4]]))
+  rownames(missing_df)[n] <- sample 
+  n <- n + 1
+}
+
+rownames(missing_df) <- gsub("X","",rownames(missing_df))
+missing_df <- missing_df[1,]
+rownames(missing_df) <- "N. of missing cpgs" 
+
+missing_df <- data.frame(RowNames = rownames(missing_df), missing_df)
+write_xlsx(missing_df, paste0(brando_path, "/Results/2_Age_prediction/Missing_CpGs_clocks.xlsx"))
+
+
 ##### 6. DNAm Mixture deconvolution  and Age prediction victim -----------------------------------------------------
 mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
                                   proportion_offender = 1){

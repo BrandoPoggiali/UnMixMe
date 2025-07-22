@@ -36,6 +36,9 @@ predicted_age <- read_xlsx(paste0(EPIC_bloodstain_path,'/Results/4_methylclok_ag
 betas_autosomal_cpgs_noNAs_2021 <- readRDS("N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/beta_values_longitudinal_study_2021_22-11-2024.rds")
 predicted_age_metadata_2021 <- read_xlsx('N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/Metadata_and_predicted_age_longitudinal_study_2021_22-11-2024.xlsx')
 
+df <- readRDS(paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_09-01-2025.rds"))    
+
+df_long <- readRDS(paste0(results_path, "Age_prediction_Age_gap_simulations_Longitudinal_data_22-07-2025.rds"))    
 
 #### 3. Generation and Deconvolution of Mixture--------------------------------------------
 
@@ -254,7 +257,7 @@ plot_tecn_err
 ggsave(paste0(results_path,"Plot_tecnical_error_simulation_10_14-10-2024.png"), 
        plot_tecn_err, width = 13, height = 8, dpi = 600, bg = "white")
 
-#### 4.2 Test impact of technical variability (measure the same sample more times for cohort of 63 individuals from Logitudinal study) -------------------------------
+#### 4.1 Test impact of technical variability (measure the same sample more times for cohort of 63 individuals from Logitudinal study) -------------------------------
 predicted_age_metadata_2021
 predicted_age_metadata_2021$AE <- round(abs(predicted_age_metadata_2021$Age - predicted_age_metadata_2021$BLUP), 2)
 
@@ -354,7 +357,7 @@ for (n in 1:nrow(random_pairs)){
   }
 
 
-saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_09-01-2025.rds"))
+saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_22-07-2025.rds"))
 
 
 df[, c(3,4,5,6)] <- df[, c(3,4,5,6)]/(32*3)
@@ -366,7 +369,15 @@ df_long <- df %>%
 
 
 df_long <- df_long[-c(1:4),]
-df_long$Ratio <- factor(df_long$Ratio, levels = c("1:1", "1:4", "1:10", "4:1", "10:1"))
+#Invert ratio
+df_long$Ratio <- paste0(df_long$Ratio, "_old")
+
+df_long$Ratio <- gsub("1:1_old", "1:1", df_long$Ratio)
+df_long$Ratio <- gsub("1:10_old", "10:1", df_long$Ratio)
+df_long$Ratio <- gsub("10:1_old", "1:10", df_long$Ratio)
+df_long$Ratio <- gsub("1:4_old", "4:1", df_long$Ratio)
+df_long$Ratio <- gsub("4:1_old", "1:4", df_long$Ratio)
+df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
 
 
 plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, group = interaction(Ratio, Clock))) +
@@ -375,17 +386,17 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
   facet_wrap(~ Clock) +  # Facet by the "Group" variable
   theme_minimal() +  # Use a minimal theme
   labs(title = "",
-       x = "Tecnical error (Δβ between replicates)",
+       x = "DNAm Technology Precision (Δβ Between Replicates)",
        y = "MAE (Years)",
-       color = "Ratio") +
+       color = "Offender-to-Victim Ratio") +
   coord_cartesian(ylim = c(0, 25)) +
   scale_x_continuous(breaks = c(0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1),
                      #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
                      expand = c(0.001, 0.001)) +
   theme(
     strip.text = element_text(size = 12, face = "bold"),  # Customize facet labels
-    axis.text = element_text(size = 10),  # Customize axis text
-    axis.text.x = element_text(angle = -45,vjust = 0, hjust = 0.1, size = 10),  # Customize axis text
+    axis.text = element_text(size = 12),  # Customize axis text
+    axis.text.x = element_text(angle = -45,vjust = 0, hjust = 0.1, size = 12),  # Customize axis text
     legend.position = "top",  # Position the legend at the top
     panel.grid.major.x = element_line(color = "grey", size = 0.4),  # Set the x-axis major grid lines
     panel.grid.minor.x = element_blank(),  # Remove minor grid lines on the x-axis
@@ -395,14 +406,14 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
     panel.spacing.x = unit(1.5, "lines"),
     axis.title.x = element_text(size = 14),  # Increase x-axis title size
     axis.title.y = element_text(size = 14),
-    legend.text = element_text(size = 13),   # Increase legend text size
+    legend.text = element_text(size = 14),   # Increase legend text size
     legend.title = element_text(size = 15),
     plot.margin = unit(c(1, 1.5, 1, 1), "lines")
   )
 
 plot_tecn_err
-ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_09-01-2025.png"), 
-       plot_tecn_err, width = 13, height = 8, dpi = 600, bg = "white")
+ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_22-07-2025.png"), 
+       plot_tecn_err, width = 11, height = 7, dpi = 600, bg = "white")
 
 
 plot_tecn_err
@@ -708,7 +719,7 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
 ggsave(paste0(results_path,"Plot_STR_ratio_err_08_14-11-2024.png"), 
        STR_plot, width = 13, height = 8, dpi = 600, bg = "white")
 
-#### 5.2 Test impact of STR ratio calculation (cohort 63 individuals) -------------------------------
+#### 5.2 Test impact of STR ratio calculation (cohort 63 individuals, Publication) -------------------------------
 
 predicted_age_metadata_2021
 predicted_age_metadata_2021$AE <- round(abs(predicted_age_metadata_2021$Age - predicted_age_metadata_2021$BLUP), 2)
@@ -844,8 +855,17 @@ df_long$Ratio[df_long$Ratio == "80:20"] <- "4:1"
 df_long$Ratio[df_long$Ratio == "90.90909090:9.09090909"] <- "10:1"
 df_long$Ratio[df_long$Ratio == "9.09090909:90.90909090"] <- "1:10"
 
-df_long$Ratio <- factor(df_long$Ratio, levels = c("1:1", "1:4", "1:10", "4:1", "10:1"))
+df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
 
+#Invert ratio
+df_long$Ratio <- paste0(df_long$Ratio, "_old")
+
+df_long$Ratio <- gsub("1:1_old", "1:1", df_long$Ratio)
+df_long$Ratio <- gsub("1:10_old", "10:1", df_long$Ratio)
+df_long$Ratio <- gsub("10:1_old", "1:10", df_long$Ratio)
+df_long$Ratio <- gsub("1:4_old", "4:1", df_long$Ratio)
+df_long$Ratio <- gsub("4:1_old", "1:4", df_long$Ratio)
+df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
 
 STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, group = interaction(Ratio, Clock))) +
   geom_line(size = 1) +  # Connect points with lines
@@ -853,17 +873,17 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
   facet_wrap(~ Clock) +  # Facet by the "Group" variable
   theme_minimal() +  # Use a minimal theme
   labs(title = "",
-       x = "Ratio error",
+       x = "Raw Ratio Estimation Error of Victim Proportion",
        y = "MAE (Years)",
-       color = "Ratio (Victim:Offender)") +
+       color = "Offender-to-Victim Ratio") +
   coord_cartesian(ylim = c(0, 16)) +
   scale_x_continuous(breaks = c(-5, -3, -2, -1, 0, 1, 2, 3, 5),
                      #                    #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
                      expand = c(0.005, 0.005)) +
   theme(
     strip.text = element_text(size = 12, face = "bold"),  # Customize facet labels
-    axis.text = element_text(size = 10),  # Customize axis text
-    axis.text.x = element_text(angle = 0,vjust = 0, hjust = 0.1, size = 10),  # Customize axis text
+    axis.text = element_text(size = 12),  # Customize axis text
+    axis.text.x = element_text(angle = 0,vjust = 0, hjust = 0.1, size = 12),  # Customize axis text
     legend.position = "top",  # Position the legend at the top
     panel.grid.major.x = element_line(color = "grey", size = 0.4),  # Set the x-axis major grid lines
     panel.grid.minor.x = element_blank(),  # Remove minor grid lines on the x-axis
@@ -871,16 +891,16 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
     panel.grid.minor.y = element_blank(),  # Remove y-axis minor grid lines
     panel.border = element_rect(color = "black", fill = NA, size = 1),  # Set border
     panel.spacing.x = unit(1.5, "lines"),
-    axis.title.x = element_text(size = 14),  # Increase x-axis title size
+    axis.title.x = element_text(size = 14, margin = margin(t=10)),  # Increase x-axis title size
     axis.title.y = element_text(size = 14),
-    legend.text = element_text(size = 13),   # Increase legend text size
+    legend.text = element_text(size = 14),   # Increase legend text size
     legend.title = element_text(size = 15),
     plot.margin = unit(c(1, 1.5, 1, 1), "lines")
   )
 
 
-ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_09_01-11-2024.png"), 
-       STR_plot, width = 13, height = 8, dpi = 600, bg = "white")
+ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_21-07-2025.png"), 
+       STR_plot, width = 11, height = 7, dpi = 600, bg = "white")
 
 
 #### 6. Test impact of Age difference in mean absolute error of offender from DNA mixture --------------------------------------
@@ -1129,7 +1149,7 @@ ggsave(paste0(results_path,"Plot_Age_difference_contributors_22-11-2024.png"),
        age_gap_plot, width = 13, height = 8, dpi = 600, bg = "white")
 
 
-#### 8. Test impact of Age differences in absolute error of offender from DNA mixture 2021 Longitudinal Cohort (Boxplot) -------------------
+#### 8. Test impact of Age differences in absolute error of offender from DNA mixture 2021 Longitudinal Cohort (Boxplot, Publication) -------------------
 
 ages_2021 <- predicted_age_metadata_2021[,c(1,6)]
 
@@ -1253,30 +1273,48 @@ df_long$Ratio <- factor(df_long$Ratio, levels = c("1:1", "10:1"))
 df_long$Age_gap <- ifelse(df_long$Age_gap < 5, "<5", ">20")
 
 
+saveRDS(df_long, paste0(results_path, "Age_prediction_Age_gap_simulations_Longitudinal_data_22-07-2025.rds"))
+
+df_long$Ratio <- gsub("10:1", "1:10", df_long$Ratio)
+df_long$Age_gap <- gsub("<", "< ", df_long$Age_gap)
+df_long$Age_gap <- gsub(">", "> ", df_long$Age_gap)
+df_long$Ratio <- factor(df_long$Ratio, levels = c("1:1", "1:10"))
+
 library(ggpubr)
 age_gap_plot_2 <- ggplot(df_long, aes(x = Ratio, y = MAE, fill = Age_gap)) +
-    geom_boxplot() +
-    facet_wrap(~ Clock) +
-    scale_y_continuous(limits = c(0, 20)) +
-    xlab('Time (days)') +
-    labs(
-      title = "",
-      x = "Ratio",
-      y = "AE (Years)",
-      fill = "Δ Chronological age"
-    ) +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5)) +
-    scale_fill_manual(values = c("<5" = "#009796", ">20" = "#8A60B0"), limits = c("<5", ">20")) +
-    stat_compare_means(
-      aes(group = Age_gap), # Specify the groups for comparison
-      method = "t.test", # You can change this to "t.test" or another test
-      label = "p.format", # Display the p-value in a formatted way
-      label.y = 19 # Adjust the position of the p-value labels
-    )
+  geom_boxplot() +
+  facet_wrap(~ Clock) +
+  scale_y_continuous(limits = c(0, 20)) +
+  xlab('Time (days)') +
+  labs(
+    title = "",
+    x = "Offender-to-Victim Ratio",
+    y = "AE (Years)",
+    fill = "Chronological Age Difference"
+  ) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual(values = c("< 5" = "#009796", "> 20" = "#8A60B0"), limits = c("< 5", "> 20")) +
+  stat_compare_means(
+    aes(group = Age_gap), # Specify the groups for comparison
+    method = "t.test", # You can change this to "t.test" or another test
+    label = "p.format", # Display the p-value in a formatted way
+    label.y = 19 # Adjust the position of the p-value labels
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),        # Plot title (currently empty)
+    axis.title.x = element_text(size = 15),                   # X-axis title
+    axis.title.y = element_text(size = 15),                   # Y-axis title
+    axis.text.x = element_text(size = 13),                    # X-axis tick labels
+    axis.text.y = element_text(size = 13),                    # Y-axis tick labels
+    strip.text = element_text(size = 14, face = "bold"),      # Facet panel titles
+    legend.title = element_text(size = 14),                   # Legend title
+    legend.text = element_text(size = 13),
+    legend.position = "top"# Legend items
+  )
 
-ggsave(paste0(results_path,"Plot_Age_difference_contributors_boxplot_26-11-2024.png"), 
-       age_gap_plot_2, width = 13, height = 8, dpi = 600, bg = "white")
+ggsave(paste0(results_path,"Plot_Age_difference_contributors_boxplot_22-07-2025.png"), 
+       age_gap_plot_2, width = 10.5, height = 7, dpi = 600, bg = "white")
 
 #### 9. Test impact difference predicted age and chronological age from DNA mixture 2021 Longitudinal Cohort (Boxplot) ---------------------------
 ##Prediction of age in single sources.
@@ -1362,70 +1400,18 @@ for (n in 1:nrow(df_delta_pred)){
 }
 
 
+
 df_long <- table_pred_age_main_contr %>%
   pivot_longer(cols = -c(Ratio, Age_gap, Pair),
                names_to = "Clock", 
                values_to = "MAE")
 
-
 df_long$Ratio <- factor(df_long$Ratio, levels = c("1:1", "10:1"))
-
 df_long$Age_gap <- ifelse(df_long$Age_gap < 1, "<1", ">4")
-
-
-library(ggpubr)
-age_gap_plot_3 <- ggplot(df_long, aes(x = Ratio, y = MAE, fill = Age_gap)) +
-  geom_boxplot() +
-  facet_wrap(~ Clock) +
-  scale_y_continuous(limits = c(0, 20)) +
-  xlab('Time (days)') +
-  labs(
-    title = "",
-    x = "Ratio",
-    y = "AE (Years)",
-    fill = "|Δ Predicted age  - chronological age|\n (Offender)"
-  ) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_fill_manual(values = c("<1" = "#88BDE6", ">4" = "#FBB258"), limits = c("<1", ">4")) +
-  stat_compare_means(
-    aes(group = Age_gap), # Specify the groups for comparison
-    method = "t.test", # You can change this to "t.test" or another test
-    label = "p.format", # Display the p-value in a formatted way
-    label.y = 19 # Adjust the position of the p-value labels
-  )
-age_gap_plot_3
-
-ggsave(paste0(results_path,"Plot_pred_chron_age_difference_offender_boxplot_27-11-2024.png"), 
-       age_gap_plot_3, width = 13, height = 8, dpi = 600, bg = "white")
-
-
+saveRDS(df_long, paste0(results_path, "Age_prediction_err_in_single_source_simulations_Longitudinal_data_22-07-2025.rds"))
 
 #Only BLUP clock
 df_long_BLUP <- df_long[df_long$Clock == "BLUP",]
-
-age_gap_BLUP_plot <- ggplot(df_long_BLUP, aes(x = Ratio, y = MAE, color = Age_gap)) +
-  geom_point() + 
-  geom_line(aes(group = Pair)) +  # Group lines by a unique ID
-  scale_y_continuous(limits = c(0, 20)) +
-  xlab('Time (days)') +
-  labs(
-    title = "",
-    x = "Ratio",
-    y = "AE (Years)",
-    color = "|Δ Predicted age  - chronological age|\n (Offender)"
-  ) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_color_manual(values = c("<1" = "#88BDE6", ">4" = "#FBB258"), limits = c("<1", ">4"))
-
-
-ggsave(paste0(results_path,"Plot_pred_chron_age_difference_offender_lines_27-11-2024.png"), 
-       age_gap_BLUP_plot, width = 8, height = 6, dpi = 600, bg = "white")
-
-
-df_long_BLUP
-
 
 df_to_merge <- df_delta_pred[df_delta_pred$AgeDifference < 1 | df_delta_pred$AgeDifference > 4, c("Name1","AgeDifference")]
 df_to_merge <- df_to_merge[df_to_merge$Name1 %in% substr(df_long_BLUP$Pair, 13, 23),]
@@ -1440,35 +1426,57 @@ colnames(df_to_merge)[1] <- "Pair"
 df_to_merge <- df_to_merge[,c(3,1,4,5,2)]
 df_long_BLUP <- rbind(df_to_merge, df_long_BLUP)
 
-df_long_BLUP$Ratio <- factor(df_long_BLUP$Ratio, levels = c("Single_source", "1:1", "10:1"))
+
+df_long_BLUP$Age_gap <- gsub("<", "< ", df_long_BLUP$Age_gap)
+df_long_BLUP$Age_gap <- gsub(">", "> ", df_long_BLUP$Age_gap)
+df_long_BLUP$Ratio[df_long_BLUP$Ratio == "Single_source"] <- "Single-Source Sample" 
+df_long_BLUP$Ratio[df_long_BLUP$Ratio == "10:1"] <- "1:10" 
+df_long_BLUP$Ratio <- factor(df_long_BLUP$Ratio, levels = c("Single-Source Sample", "1:1", "1:10"))
 
 
 age_gap_BLUP_ss_plot <- ggplot(df_long_BLUP, aes(x = Ratio, y = MAE, color = Age_gap)) +
   geom_point() + 
   geom_line(aes(group = Pair)) +  # Group lines by a unique ID
-  scale_y_continuous(limits = c(0, 20)) +
+  scale_y_continuous(limits = c(0, 15)) +
   xlab('Time (days)') +
   labs(
     title = "",
-    x = "Ratio",
+    x = "Offender-to-Victim Ratio",
     y = "AE (Years)",
-    color = "|Δ Predicted age  - chronological age|\n (Offender)"
+    color = " Absolute Difference Between Predicted \n Age and Chronological age (Offender)"
   ) +
   theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_color_manual(values = c("<1" = "#88BDE6", ">4" = "#FBB258"), limits = c("<1", ">4"))
+  theme(
+    axis.title.x = element_text(size = 14, margin = margin(t = 10)),                   # X-axis title
+    axis.title.y = element_text(size = 14),                   # Y-axis title
+    axis.text.x = element_text(size = 13),                    # X-axis tick labels
+    axis.text.y = element_text(size = 13),                    # Y-axis tick labels
+    legend.title = element_text(size = 13),                   # Legend title
+    legend.text = element_text(size = 13),
+  ) +
+  scale_color_manual(values = c("< 1" = "#88BDE6", "> 4" = "#FBB258"), limits = c("< 1", "> 4")) +
+  stat_compare_means(
+    aes(x = Ratio, y = MAE, group = Age_gap),
+    method = "t.test",
+    label = "p.format",
+    comparisons = NULL,
+    label.y = 14,
+    inherit.aes = FALSE,
+    size=4.5
+  )
 
-ggsave(paste0(results_path,"Plot_pred_chron_age_difference_offender_sing_source_lines_27-11-2024.png"), 
-       age_gap_BLUP_ss_plot, width = 8, height = 6, dpi = 600, bg = "white")
+
+age_gap_BLUP_ss_plot 
+
+ggsave(paste0(results_path,"Plot_pred_chron_age_difference_offender_sing_source_lines_22-07-2025.png"), 
+       age_gap_BLUP_ss_plot, width = 8.7, height = 6.4, dpi = 600, bg = "white")
 
 
-
-#Statistical test: Linear mixed-effects model (LMM)
-library(lme4)
-# Assume data has columns: `parameter`, `group`, `time`, `subject`
-model <- lmer(MAE ~ Age_gap * Ratio + (1 | Pair), data = df_long_BLUP)
-summary(model)
-
+#Use statistics to verify that the two groups produce statistically different results
+df_long_BLUP
+#Test if data have a normal distribution
+shapiro.test(df_long_BLUP[df_long_BLUP$Ratio == "10:1" & df_long_BLUP$Age_gap == "< 1", "MAE"]) #W = 0.90703, p-value = 0.1427
+shapiro.test(df_long_BLUP[df_long_BLUP$Ratio == "10:1" & df_long_BLUP$Age_gap == "> 4", "MAE"]) #W = 0.91757, p-value = 0.2029
 
 
 
