@@ -30,12 +30,12 @@ library(gridExtra)
 library(reshape)
 library(gtools)
 
-sesameDataCache() #In case you install or update SeSAMe
+dimsesameDataCache() #In case you install or update SeSAMe
 
 idat_dir <- "G:/FAELLES/Dokumenter/BRP/local_data"
-brando_path <- "N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156"
-results_path <- "N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results"
-annotation_files_path <- "G:/FAELLES/Dokumenter/BRP/5_Projects/EPIC_annotations_files/"
+brando_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156"
+results_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results"
+annotation_files_path <- "/mnt/ngs/FAELLES/Dokumenter/BRP/5_Projects/EPIC_annotations_files/"
 
 setwd(brando_path)
 
