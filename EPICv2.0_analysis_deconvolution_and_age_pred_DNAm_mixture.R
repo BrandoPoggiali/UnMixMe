@@ -8,7 +8,9 @@
 # Date: 18-07-2024
 
 #### 1.Setting libraries and paths. ------------------------------------------------
-BiocManager::install("")
+install.packages("scrime")
+BiocManager::install("minfi")
+BiocManager::install("methylclock")
 install.packages("gtools") 
 
 #Load package
@@ -29,6 +31,7 @@ library(grid)
 library(gridExtra) 
 library(reshape)
 library(gtools)
+library(minfi)
 
 dimsesameDataCache() #In case you install or update SeSAMe
 
@@ -45,7 +48,7 @@ Zhou_probe_annotation_EPIC_v2 <- read_tsv(paste0(annotation_files_path, "EPICv2.
  
 betas <-  openSesame(idat_dir, prep="QCDPB", func=getBetas) # Add collapseToPfx = TRUE if you immediately want to collapse the probes 
 metadata <- read_xlsx(path = paste0(brando_path,"/Metadata/20240417_SampleSheet.xlsx"), sheet = "iScan_codes")
-metadata_age <- read_xlsx(path = paste0(brando_path,"/Metadata/donor_ages_DNAm_mixture.xlsx"))
+metadata_age <- read_xlsx(path = paste0(brando_path,"/Metadata/donor_ages_DNAm_mixture_Alberte_correct.xlsx"))
 STR_ratio <- read_xlsx(path = paste0(brando_path,'/Results/0_Ratio_quantification/AgePredictionMixtures/AgePredictionMixtures_STRmixSummary.xlsx'))
 
 #### 3. Tidy up dataset. ----------------------------------------------------------------------------------
@@ -89,7 +92,7 @@ STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
 #Save data
 setwd(brando_path)
 saveRDS(betas, paste0(brando_path, "/beta_values_age_pred_DNAm_mixture_18-07-2024.rds"))
-write.table(metadata, file.path(brando_path, "Metadata/metadata_complete_18-07-2024.tsv"), sep="\t")
+write.table(metadata, file.path(brando_path, "Metadata/metadata_complete_30-08-2025.tsv"), sep="\t")
 
 #### 4. Quality control. ----------------------------------------------------------------------------------
 
@@ -196,6 +199,8 @@ ggsave(paste0(brando_path,"/Results/Quality_control/PCA_chromosome_X_and_Y_01-29
        PCA_chr_X_Y)
 
 
+
+
 ##4.4 Removal of sex chromosomes
 Chromosome_X_and_Y_probes <- Zhou_probe_annotation_EPIC_v2 %>%
   filter(CpG_chrm %in% c("chrX", "chrY")) %>%  # Just select the chromosomes of interests example: c("chrX", "chrY")
@@ -269,6 +274,15 @@ betas_cg_autosomal_collps_no_NAs <- na.omit(betas_cg_autosomal_collps)
 betas_cg_autosomal_collps_no_NAs <- as.data.frame(betas_cg_autosomal_collps_no_NAs)
 saveRDS(betas_cg_autosomal_collps_no_NAs, file.path(brando_path, "/Data/betas_cg_autosomal_collps_30-09-2024.rds"))
 
+##4.9 Check missing and excluded CpG sites
+EPICv2_cpgs <-  betasCollapseToPfx(as.matrix(betas))
+checkClocks(EPICv2_cpgs)
+
+# Check missing CpGs in the EPIC v2.0 array
+length(coefBLUP$CpGmarker[-1]) - sum(coefBLUP$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
+length(coefEN$CpGmarker[-1]) - sum(coefEN$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
+length(coefHorvath$CpGmarker[-1]) - sum(coefHorvath$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
+length(coefSkin$CpGmarker[-1]) - sum(coefSkin$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
 
 ##### 5. DNAm Mixture deconvolution  and Age prediction offender -----------------------------------------------------
 mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
@@ -535,7 +549,7 @@ write_xlsx(AE_single_source, paste0(results_path, "/2_Age_prediction/Absolute_er
 
 #### 8. Upload of RSD data --------------------------------------------------------------------
 betas <- readRDS(paste0(brando_path,"/Data/beta_values_age_pred_DNAm_mixture_18-07-2024.rds")) # no normalize for batch effect
-metadata <- read.table(file = paste0(brando_path,'/Metadata/metadata_complete_18-07-2024.tsv'), sep = '\t', header = TRUE)
+metadata <- read.table(file = paste0(brando_path,'/Metadata/metadata_complete_30-08-2025.tsv'), sep = '\t', header = TRUE)
 STR_ratio <- read_xlsx(path = paste0(brando_path,'/Results/0_Ratio_quantification/AgePredictionMixtures/AgePredictionMixtures_STRmixSummary.xlsx'))
 STR_ratio <- STR_ratio[, c(1:7)]
 STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
@@ -643,7 +657,7 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
   # Color only for Pair
   scale_color_manual(
     values = pair_colors,
-    name = "Mixture Pair"
+    name = "Mixture"
   ) +
   
   # Linetype for Reference — colors added in override.aes
@@ -682,7 +696,7 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
     legend.title = element_text(size = 15),
     plot.margin = unit(c(1, 1.5, 1, 1), "lines")
   ) +
-  xlab("Offender-to-Victim Ratio")
+  xlab("Suspect-to-Victim Ratio")
 
 MAE_plot
 
