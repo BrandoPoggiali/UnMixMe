@@ -26,6 +26,7 @@ library(factoextra)
 library(sva)
 library(methylclock)
 library(writexl)
+library(ggplot2)
 library(ggpubr)
 library(grid)
 library(gridExtra) 
@@ -291,7 +292,7 @@ mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim =
   return(beta_offender)
 }
 
-mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1, # M-values conversion
+mixture_deconvolution_M_values <- function(beta_mixture, beta_victim, proportion_victim = 1, # M-values conversion
                                   proportion_offender = 1){
   M_mixture <- log2(beta_mixture / (1 - beta_mixture))
   M_victim <- log2(beta_victim / (1 - beta_victim))
@@ -302,10 +303,10 @@ mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim =
 
 colnames(betas_cg_autosomal_collps_no_NAs) == metadata$Sample_name
 
-df_predicted_ages <- data.frame(matrix(nrow = length(betas_cg_autosomal_collps_no_NAs) - 4, 
-                                       ncol = 5))
-df_absolute_error_ages <- data.frame(matrix(nrow = length(betas_cg_autosomal_collps_no_NAs) - 4, 
-                                       ncol = 5))
+df_predicted_ages <- data.frame(matrix(nrow = ncol(betas_cg_autosomal_collps_no_NAs) - 4, ncol = 5))
+df_absolute_error_ages <- data.frame(matrix(nrow = ncol(betas_cg_autosomal_collps_no_NAs) - 4, ncol = 5))
+df_reconstructured_DNAm_profile <- data.frame(matrix(nrow = nrow(betas_cg_autosomal_collps_no_NAs), ncol = ncol(betas_cg_autosomal_collps_no_NAs) -4))
+
 #name <- "AE_AF_1_10_A"
 n <- 1
 for (name in colnames(betas_cg_autosomal_collps_no_NAs)){
@@ -338,6 +339,9 @@ for (name in colnames(betas_cg_autosomal_collps_no_NAs)){
   deconv_betas_offender[deconv_betas_offender > 1] <- 1
   deconv_betas_offender[deconv_betas_offender < 0] <- 0
   
+  #Store reconstructed DNAm profile of suspect
+  df_reconstructured_DNAm_profile[,n] <- deconv_betas_offender
+  colnames(df_reconstructured_DNAm_profile)[n] <- name
   #Age Prediction
   df_for_prediction <- data.frame(rownames(betas_cg_autosomal_collps_no_NAs), 
                                   deconv_betas_offender, deconv_betas_offender)
@@ -358,8 +362,8 @@ colnames(df_absolute_error_ages) <- c("AE_Horvath", "AE_skinHorvath", "AE_BLUP",
 metadata_pred_age <- merge(metadata, df_predicted_ages, by="Sample_name")
 metadata_AE_pred_age <- merge(metadata, df_absolute_error_ages, by="Sample_name")
 
-write_xlsx(metadata_pred_age, paste0(results_path, "/2_Age_prediction/Predicted_age_DNA_mixtures_22-07-2024.xlsx"))
-write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_22-07-2024.xlsx"))
+write_xlsx(metadata_pred_age, paste0(results_path, "/2_Age_prediction/Predicted_age_DNA_mixtures_02-09-2025.xlsx"))
+write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_02-09-2025.xlsx"))
 
 
 ## Result tables creation
@@ -394,7 +398,7 @@ for (n in 1:nrow(MAE_predicted_age)){
 MAE_predicted_age <- MAE_predicted_age[,-c(8,9)]
 colnames(MAE_predicted_age)[7] <- "Ratio"
 
-write_xlsx(MAE_predicted_age, paste0(results_path, "2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_M_value_08-11-2024.xlsx"))
+write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_02-09-2025.xlsx"))
 
 
 
@@ -528,7 +532,7 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_victim_10-10-2024.xlsx"))
 
-##### 7. Age prediction in single source samples -----------------------------------------------------
+##### 7. Age prediction in single source samples and age prediction from mixture using single-source sample as reference-----------------------------------------------------
 betas_single_source <- betas_cg_autosomal_collps_no_NAs[, c("AA","AB", "AE", "AF")]
 
 df_for_prediction <- data.frame(rownames(betas_cg_autosomal_collps_no_NAs), betas_single_source)
@@ -545,7 +549,67 @@ AE_single_source[2,-1] <- abs(predicted_age_single_source[2,-1] - Age_AB)
 AE_single_source[3,-1] <- abs(predicted_age_single_source[3,-1] - Age_AE)
 AE_single_source[4,-1] <- abs(predicted_age_single_source[4,-1] - Age_AF)
 
-write_xlsx(AE_single_source, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_22-07-2024.xlsx"))
+write_xlsx(AE_single_source, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_02-09-2025.xlsx"))
+
+#Age prediction from DNA mixture calculating the MAE using predicted age in single source samples
+
+df_absolute_error_ages_with_single_source <- data.frame(matrix(nrow = ncol(betas_cg_autosomal_collps_no_NAs) - 4, ncol = 4))
+predicted_age_ss <- c(AA=Age_AA, AB=Age_AB, AE=Age_AE, AF=Age_AF)
+#name <- "AA_AB_1_4_A"
+n <- 1
+for (name in df_predicted_ages$Sample_name){
+  if (nchar(name) < 5){ next }
+  print(name)
+  name_victim <- substring(name, 4, 5)
+  name_offender <- substring(name, 1, 2)
+  predicted_age_offender_ss <- predicted_age_single_source[predicted_age_single_source$id == name_offender,][,-1]
+  predicted_age_mixture_ss <- df_predicted_ages[df_predicted_ages$Sample_name == name, -5]
+  
+  absolute_error_mixture <- abs(predicted_age_mixture_ss - predicted_age_offender_ss)
+  df_absolute_error_ages_with_single_source[n,] <- absolute_error_mixture
+  df_absolute_error_ages_with_single_source$Sample_name[n] <- name
+  n <- n + 1
+}
+colnames(df_absolute_error_ages_with_single_source) <- c("AE_Horvath", "AE_skinHorvath", "AE_BLUP","AE_EN", "Sample_name")
+
+metadata_AE_pred_age_ss <- merge(metadata, df_absolute_error_ages_with_single_source, by="Sample_name")
+
+write_xlsx(metadata_AE_pred_age_ss, paste0(results_path, "/2_Age_prediction/Predicted_age_DNA_mixtures_ss_02-09-2025.xlsx"))
+
+## Result tables creation for MAE calculated on single source sample
+AE_predicted_age <- metadata_AE_pred_age_ss[, c(1, 14, 15, 16, 17)]
+AE_predicted_age$Mixture_type <- substring(AE_predicted_age$Sample_name, 1, nchar(AE_predicted_age$Sample_name) - 2)
+
+MAE_predicted_age <- AE_predicted_age %>% # Calculate Mean Absolute Error for replicates
+  group_by(Mixture_type) %>%
+  summarize(across(c("AE_Horvath", "AE_skinHorvath", "AE_BLUP","AE_EN"),
+                   mean, .names = "M{.col}"))
+
+MAE_predicted_age$Mixture_type <- factor(MAE_predicted_age$Mixture_type, levels=c("AA_AB_1_1",	"AA_AB_2_1",	"AA_AB_4_1",	"AA_AB_10_1",	"AA_AB_1_2",	"AA_AB_1_4",	"AA_AB_1_10",	"AE_AF_1_1",	
+                                                                                  "AE_AF_2_1",	"AE_AF_4_1",	"AE_AF_10_1",	"AE_AF_1_2",	"AE_AF_1_4",	"AE_AF_1_10"))
+
+MAE_predicted_age <- MAE_predicted_age[order(MAE_predicted_age$Mixture_type),]
+MAE_predicted_age[,-1] <- round(MAE_predicted_age[,-1], 2)
+MAE_predicted_age$Individuals <- substring(as.character(MAE_predicted_age$Mixture_type),1,5)
+MAE_predicted_age$Ratio <- substring(MAE_predicted_age$Mixture_type, 7, 10)
+MAE_predicted_age$Ratio <- gsub("_", ":", MAE_predicted_age$Ratio)
+STR_ratio_add <- STR_ratio[,c(1, 7, 8)]
+colnames(STR_ratio_add)[1] <- "Mixture_type"
+MAE_predicted_age <- merge(MAE_predicted_age, STR_ratio_add, by="Mixture_type")
+
+for (n in 1:nrow(MAE_predicted_age)){
+  if (substring(MAE_predicted_age[n,1], 1, 2) == MAE_predicted_age[n,"Match1"]){
+    MAE_predicted_age$STR_ratio[n] <- paste0(round(MAE_predicted_age[n,"Ratio.y"], 1), ":1")
+  } else {
+    MAE_predicted_age$STR_ratio[n] <- paste0("1:", round(MAE_predicted_age[n,"Ratio.y"], 1))
+  }
+}
+
+MAE_predicted_age <- MAE_predicted_age[,-c(8,9)]
+colnames(MAE_predicted_age)[7] <- "Ratio"
+
+write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx"))
+
 
 #### 8. Upload of RSD data --------------------------------------------------------------------
 betas <- readRDS(paste0(brando_path,"/Data/beta_values_age_pred_DNAm_mixture_18-07-2024.rds")) # no normalize for batch effect
@@ -555,42 +619,11 @@ STR_ratio <- STR_ratio[, c(1:7)]
 STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
 betas_cg_autosomal_collps_no_NAs <- readRDS(file.path(brando_path, "/Data/betas_cg_autosomal_collps_30-09-2024.rds"))
 
-
-#### 9. Generation of plots for presentation (research meeting)
-age_gap_plot <- ggplot(df_long, aes(x = Ratio, y = MAE, color = Age_gap, group = interaction(Age_gap, Pair))) +
-  geom_line(size = 1) +  # Connect points with lines
-  geom_point(size = 2) +  # Optional: Add points at each time point
-  facet_wrap(~ Clock) +  # Facet by the "Group" variable
-  theme_minimal() +  # Use a minimal theme
-  labs(title = "",
-       x = "Ratios",
-       y = "AE (Years)",
-       color = "Δ Chronological Age") +
-  coord_cartesian(ylim = c(0, 10)) +
-  #scale_x_continuous(breaks = c(0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1),
-  #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
-  #                  expand = c(0.001, 0.001)) +
-  theme(
-    strip.text = element_text(size = 12, face = "bold"),  # Customize facet labels
-    axis.text = element_text(size = 10),  # Customize axis text
-    axis.text.x = element_text(angle = -45,vjust = 0, hjust = 0.1, size = 10),  # Customize axis text
-    legend.position = "top",  # Position the legend at the top
-    panel.grid.major.x = element_line(color = "grey", size = 0.4),  # Set the x-axis major grid lines
-    panel.grid.minor.x = element_blank(),  # Remove minor grid lines on the x-axis
-    panel.grid.major.y = element_line(color = "lightgrey"),  # Keep y-axis grid lines
-    panel.grid.minor.y = element_blank(),  # Remove y-axis minor grid lines
-    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Set border
-    panel.spacing.x = unit(1.5, "lines"),
-    axis.title.x = element_text(size = 14),  # Increase x-axis title size
-    axis.title.y = element_text(size = 14),
-    legend.text = element_text(size = 13),   # Increase legend text size
-    legend.title = element_text(size = 15),
-    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
-  )
 #### 9. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
-Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_30-09-2024.xlsx'))
-Predicted_age_single_source <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_22-07-2024.xlsx'))
-colnames(Predicted_age)[2] <- "Theoretical_ratio"
+Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
+Predicted_age_single_source <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_02-09-2025.xlsx'))
+colnames(Predicted_age)[7] <- "Theoretical_ratio"
+Predicted_age <- Predicted_age[,-6]
 
 Predicted_age_long <- Predicted_age %>%
   pivot_longer(cols = -c(Mixture_type, Theoretical_ratio, STR_ratio),
@@ -615,20 +648,25 @@ colnames(Predicted_age_single_source_long)[1] <- "color"
 Predicted_age_long$Pair <- gsub("_", " ", Predicted_age_long$Pair)
 
 #Change AE-AF in AC-AD
-Predicted_age_long$Mixture_type <- gsub("AE_AF", "AC_AD", Predicted_age_long$Mixture_type)
-Predicted_age_long$Pair <- gsub("AE AF", "AC AD", Predicted_age_long$Pair)
+Predicted_age_long$Mixture_type <- gsub("AA_AB", "M1_F1", Predicted_age_long$Mixture_type)
+Predicted_age_long$Mixture_type <- gsub("AC_AD", "M2_F2", Predicted_age_long$Mixture_type)
+
+Predicted_age_long$Pair <- gsub("AA AB", "M1 F1", Predicted_age_long$Pair)
+Predicted_age_long$Pair <- gsub("AE AF", "M2 F2", Predicted_age_long$Pair)
 Predicted_age_long$Pair <- gsub(" ", "-", Predicted_age_long$Pair)
+Predicted_age_long$Clock <- paste(Predicted_age_long$Clock, "clock")
 
-Predicted_age_single_source_long$color <- gsub("AE", "AC", Predicted_age_single_source_long$color)
-
+Predicted_age_single_source_long$color <- gsub("AA", "M1", Predicted_age_single_source_long$color)
+Predicted_age_single_source_long$color <- gsub("AE", "M2", Predicted_age_single_source_long$color)
+Predicted_age_single_source_long$Clock <- paste(Predicted_age_single_source_long$Clock, "clock")
 
 # Prepare horizontal line data
-hline_data <- Predicted_age_single_source_long[Predicted_age_single_source_long$color %in% c("AA", "AC"), ]
+hline_data <- Predicted_age_single_source_long[Predicted_age_single_source_long$color %in% c("M1", "M2"), ]
 hline_data$Reference <- hline_data$color  # Will be "AA" and "AC"
 
 # Define custom colors
-pair_colors <- c("AA-AB" = "#028FFB", "AC-AD" = "#FB6E02")
-ref_colors <- c("AA" = "#4DB1FE", "AC" = "#FD9341")
+pair_colors <- c("M1-F1" = "#028FFB", "M2-F2" = "#FB6E02")
+ref_colors <- c("M1" = "#4DB1FE", "M2" = "#FD9341")
 
 MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color = Pair, group = Pair)) +
   # Main lines
@@ -636,18 +674,18 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
   geom_point(size = 2) +
   
   # Horizontal dashed lines (color fixed manually, linetype mapped to create legend)
-  geom_hline(data = hline_data,
-             aes(yintercept = AE, linetype = Reference),
-             color = NA,  # Prevent ggplot from coloring
-             size = 0.6,
-             show.legend = TRUE) +
-  # Add a second, hidden layer to apply the colors manually
-  geom_hline(data = hline_data,
-             aes(yintercept = AE, linetype = Reference),
-             color = ref_colors[hline_data$Reference],
-             size = 0.6,
-             inherit.aes = FALSE,
-             show.legend = FALSE) +
+  # geom_hline(data = hline_data,
+  #            aes(yintercept = AE, linetype = Reference),
+  #            color = NA,  # Prevent ggplot from coloring
+  #            size = 0.6,
+  #            show.legend = TRUE) +
+  # # Add a second, hidden layer to apply the colors manually
+  # geom_hline(data = hline_data,
+  #            aes(yintercept = AE, linetype = Reference),
+  #            color = ref_colors[hline_data$Reference],
+  #            size = 0.6,
+  #            inherit.aes = FALSE,
+  #            show.legend = FALSE) +
   
   # Facet etc.
   facet_wrap(~ Clock) +
@@ -660,11 +698,11 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
     name = "Mixture"
   ) +
   
-  # Linetype for Reference — colors added in override.aes
-  scale_linetype_manual(
-    values = c("AA" = "dashed", "AC" = "dashed"),
-    name = "Single-Source Sample"
-  ) +
+  # # Linetype for Reference — colors added in override.aes
+  # scale_linetype_manual(
+  #   values = c("M1" = "dashed", "M2" = "dashed"),
+  #   name = "Single-Source Sample"
+  # ) +
   
   # Manually override legend aesthetics to inject color into dashed lines
   guides(
@@ -690,17 +728,16 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
     panel.grid.minor.y = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, size = 1),
     panel.spacing.x = unit(1.5, "lines"),
-    axis.title.x = element_text(size = 15),
+    axis.title.x = element_text(size = 14),
     axis.title.y = element_text(size = 15),
     legend.text = element_text(size = 14),
     legend.title = element_text(size = 15),
     plot.margin = unit(c(1, 1.5, 1, 1), "lines")
   ) +
-  xlab("Suspect-to-Victim Ratio")
+  xlab("Suspect-to-Victim Ratio") + ylab("MAE (years)")
 
 MAE_plot
 
 
-
-ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_21-07-2025.png"), 
+ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_ss_02-09-2025.png"), 
        MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
