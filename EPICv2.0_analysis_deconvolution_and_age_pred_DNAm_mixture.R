@@ -80,7 +80,7 @@ for (ind in unique(metadata$Individual_1)){
 
 metadata$Duplicate <- ifelse(nchar(metadata$Sample_name) > 5,
                              substring(metadata$Sample_name, nchar(metadata$Sample_name), nchar(metadata$Sample_name)),
-                                       NA)
+                             NA)
 
 str(metadata)
 
@@ -95,7 +95,15 @@ setwd(brando_path)
 saveRDS(betas, paste0(brando_path, "/beta_values_age_pred_DNAm_mixture_18-07-2024.rds"))
 write.table(metadata, file.path(brando_path, "Metadata/metadata_complete_30-08-2025.tsv"), sep="\t")
 
-#### 4. Quality control. ----------------------------------------------------------------------------------
+#### 4. Upload of RSD data after first analysis --------------------------------------------------------------------
+betas <- readRDS(paste0(brando_path,"/Data/beta_values_age_pred_DNAm_mixture_18-07-2024.rds")) # no normalize for batch effect
+metadata <- read.table(file = paste0(brando_path,'/Metadata/metadata_complete_30-08-2025.tsv'), sep = '\t', header = TRUE)
+STR_ratio <- read_xlsx(path = paste0(brando_path,'/Results/0_Ratio_quantification/AgePredictionMixtures/AgePredictionMixtures_STRmixSummary.xlsx'))
+STR_ratio <- STR_ratio[, c(1:7)]
+STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
+betas_cg_autosomal_collps_no_NAs <- readRDS(file.path(brando_path, "/Data/betas_cg_autosomal_collps_30-09-2024.rds"))
+
+#### 5. Quality control. ----------------------------------------------------------------------------------
 
 ## 4.1 Check Sesame quality control statistics
 #The quality control steps are performed after applying the pre-processing steps "QCDPB" on the sesame package
@@ -282,7 +290,7 @@ length(coefEN$CpGmarker[-1]) - sum(coefEN$CpGmarker[-1] %in% rownames(EPICv2_cpg
 length(coefHorvath$CpGmarker[-1]) - sum(coefHorvath$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
 length(coefSkin$CpGmarker[-1]) - sum(coefSkin$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
 
-##### 5. DNAm Mixture deconvolution and Age prediction offender -----------------------------------------------------
+##### 6. DNAm Mixture deconvolution and Age prediction offender -----------------------------------------------------
 mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
                                   proportion_offender = 1){
   beta_offender <- (((proportion_victim + proportion_offender) * beta_mixture) - (proportion_victim * beta_victim)) / proportion_offender
@@ -424,7 +432,7 @@ rownames(missing_df) <- "N. of missing cpgs"
 missing_df <- data.frame(RowNames = rownames(missing_df), missing_df)
 write_xlsx(missing_df, paste0(brando_path, "/Results/2_Age_prediction/Missing_CpGs_clocks.xlsx"))
 
-##### 6. Investigation accuracy in reconstructing DNAm profile --------------------------------------------------
+##### 7. Investigation accuracy in reconstructing DNAm profile --------------------------------------------------
 df_reconstructured_DNAm_profile <- readRDS(file= paste0(brando_path, "/Reconstructed_beta_values_age_pred_DNAm_mixture_02-09-2025.rds"))
 
 #Upload clocks
@@ -567,113 +575,6 @@ MAE_plot <- ggplot(
 ggsave(paste0(results_path,"/2_Age_prediction/Median_delta_betas_reconstructed_DNAm_profiles_02-09-2025.png"), 
        MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
 
-##### 7. DNAm Mixture deconvolution and Age prediction victim -----------------------------------------------------
-mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
-                                  proportion_offender = 1){
-  beta_offender <- (((proportion_victim + proportion_offender) * beta_mixture) - (proportion_victim * beta_victim)) / proportion_offender
-  return(beta_offender)
-}
-
-colnames(betas_cg_autosomal_collps_no_NAs) == metadata$Sample_name
-
-df_predicted_ages <- data.frame(matrix(nrow = length(betas_cg_autosomal_collps_no_NAs) - 4, 
-                                       ncol = 5))
-df_absolute_error_ages <- data.frame(matrix(nrow = length(betas_cg_autosomal_collps_no_NAs) - 4, 
-                                            ncol = 5))
-name <- "AE_AF_1_10_A"
-name <- "AA_AB_1_4_A"
-n <- 1
-for (name in colnames(betas_cg_autosomal_collps_no_NAs)){
-  if (nchar(name) < 5){ next }
-  betas_mixture <- betas_cg_autosomal_collps_no_NAs[, name]
-  name_offender <- substring(name, 4, 5)
-  name_victim <- substring(name, 1, 2)
-  age_offender <- as.numeric(metadata[metadata$Sample_name == name, "Individual_2_age"])
-  betas_victim <- betas_cg_autosomal_collps_no_NAs[, name_victim]
-  
-  STR_ratio_name <- STR_ratio[STR_ratio$SampleName == substring(name, 1, nchar(name) - 2), ]
-  if (STR_ratio_name$Match1 == name_victim) {
-    ratio_value_victim <- STR_ratio_name$Ratio
-    ratio_value_offender <- 1
-  } else {
-    ratio_value_offender <- STR_ratio_name$Ratio
-    ratio_value_victim <- 1
-  }
-  
-  #ratio_value_victim <- as.numeric(metadata[metadata$Sample_name == name, "Ratio_Individual_2"]) 
-  #ratio_value_offender <- as.numeric(metadata[metadata$Sample_name == name, "Ratio_Individual_1"]) 
-  
-  #Deconvolute profile
-  deconv_betas_victim <- mixture_deconvolution(betas_mixture, betas_victim, 
-                                                 proportion_victim = ratio_value_victim, 
-                                                 proportion_offender = ratio_value_offender)
-  
-  
-  #Correct beta values of the offender
-  deconv_betas_victim[deconv_betas_victim > 1] <- 1
-  deconv_betas_victim[deconv_betas_victim < 0] <- 0
-  
-  #Age Prediction
-  df_for_prediction <- data.frame(rownames(betas_cg_autosomal_collps_no_NAs), 
-                                  deconv_betas_victim, deconv_betas_victim)
-  predicted_age_mixture <- as.data.frame(DNAmAge(df_for_prediction, clocks = c("BLUP", "EN", "Horvath", "skinHorvath")))
-  predicted_age_mixture <- predicted_age_mixture[1,-1]
-  absolute_error_mixture <- abs(predicted_age_mixture - age_offender)
-  predicted_age_mixture$Sample_name <- name
-  absolute_error_mixture$Sample_name <- name
-  df_predicted_ages[n,] <- predicted_age_mixture
-  df_absolute_error_ages[n,] <- absolute_error_mixture
-  n <- n + 1
-}
-
-
-colnames(df_predicted_ages) <- c("Horvath", "skinHorvath", "BLUP","EN", "Sample_name")
-colnames(df_absolute_error_ages) <- c("AE_Horvath", "AE_skinHorvath", "AE_BLUP","AE_EN", "Sample_name")
-
-metadata_pred_age <- merge(metadata, df_predicted_ages, by="Sample_name")
-metadata_AE_pred_age <- merge(metadata, df_absolute_error_ages, by="Sample_name")
-
-write_xlsx(metadata_pred_age, paste0(results_path, "/2_Age_prediction/Predicted_age_DNA_mixtures_victim_10-08-2024.xlsx"))
-write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_victim_10-08-2024.xlsx"))
-
-
-## Result tables creation
-AE_predicted_age <- metadata_AE_pred_age[, c(1, 14, 15, 16, 17)]
-AE_predicted_age$Mixture_type <- substring(AE_predicted_age$Sample_name, 1, nchar(AE_predicted_age$Sample_name) - 2)
-
-MAE_predicted_age <- AE_predicted_age %>% # Calculate Mean Absolute Error for replicates
-  group_by(Mixture_type) %>%
-  summarize(across(c("AE_Horvath", "AE_skinHorvath", "AE_BLUP","AE_EN"),
-                   mean, .names = "M{.col}"))
-
-MAE_predicted_age$Mixture_type <- factor(MAE_predicted_age$Mixture_type, levels=c("AA_AB_1_1",	"AA_AB_2_1",	"AA_AB_4_1",	"AA_AB_10_1",	"AA_AB_1_2",	"AA_AB_1_4",	"AA_AB_1_10",	"AE_AF_1_1",	
-                                                                                  "AE_AF_2_1",	"AE_AF_4_1",	"AE_AF_10_1",	"AE_AF_1_2",	"AE_AF_1_4",	"AE_AF_1_10"))
-
-MAE_predicted_age <- MAE_predicted_age[order(MAE_predicted_age$Mixture_type),]
-MAE_predicted_age[,-1] <- round(MAE_predicted_age[,-1], 2)
-MAE_predicted_age$Individuals <- substring(as.character(MAE_predicted_age$Mixture_type),1,5)
-MAE_predicted_age$Ratio <- substring(MAE_predicted_age$Mixture_type, 7, 10)
-MAE_predicted_age$Ratio <- gsub("_", ":", MAE_predicted_age$Ratio)
-STR_ratio_add <- STR_ratio[,c(1, 7, 8)]
-colnames(STR_ratio_add)[1] <- "Mixture_type"
-MAE_predicted_age <- merge(MAE_predicted_age, STR_ratio_add, by="Mixture_type")
-
-for (n in 1:nrow(MAE_predicted_age)){
-  if (substring(MAE_predicted_age[n,1], 1, 2) == MAE_predicted_age[n,"Match1"]){
-    MAE_predicted_age$STR_ratio[n] <- paste0(round(MAE_predicted_age[n,"Ratio.y"], 1), ":1")
-  } else {
-    MAE_predicted_age$STR_ratio[n] <- paste0("1:", round(MAE_predicted_age[n,"Ratio.y"], 1))
-  }
-}
-
-MAE_predicted_age <- MAE_predicted_age[,-c(8,9)]
-colnames(MAE_predicted_age)[7] <- "Ratio"
-
-write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_victim_10-10-2024.xlsx"))
-
-
-
-
 ##### 8. Age prediction in single source samples and age prediction from mixture using single-source sample as reference-----------------------------------------------------
 betas_single_source <- betas_cg_autosomal_collps_no_NAs[, c("AA","AB", "AE", "AF")]
 
@@ -753,15 +654,7 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx"))
 
 
-#### 9. Upload of RSD data --------------------------------------------------------------------
-betas <- readRDS(paste0(brando_path,"/Data/beta_values_age_pred_DNAm_mixture_18-07-2024.rds")) # no normalize for batch effect
-metadata <- read.table(file = paste0(brando_path,'/Metadata/metadata_complete_30-08-2025.tsv'), sep = '\t', header = TRUE)
-STR_ratio <- read_xlsx(path = paste0(brando_path,'/Results/0_Ratio_quantification/AgePredictionMixtures/AgePredictionMixtures_STRmixSummary.xlsx'))
-STR_ratio <- STR_ratio[, c(1:7)]
-STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
-betas_cg_autosomal_collps_no_NAs <- readRDS(file.path(brando_path, "/Data/betas_cg_autosomal_collps_30-09-2024.rds"))
-
-#### 10. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
+#### 9. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
 Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
 Predicted_age_single_source <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_02-09-2025.xlsx'))
 colnames(Predicted_age)[7] <- "Theoretical_ratio"
@@ -883,3 +776,4 @@ MAE_plot
 
 ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_ss_02-09-2025.png"), 
        MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
+
