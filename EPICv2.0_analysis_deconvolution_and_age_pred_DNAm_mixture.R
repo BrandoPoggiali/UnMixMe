@@ -126,7 +126,6 @@ Mean_intensities_plot <- ggplot(qc_df) + #Mean intensity
 ggsave(paste0(results_path,"/1_Quality_control/Mean_intensities_plot_18-07-2024.png"), 
        Mean_intensities_plot, width = 6, height = 4.5)
 
-
 Ratio_red_to_green_median_int_plot <- ggplot(qc_df) + #Ratio red to green background
   geom_bar(aes(Sample_code, medR / medG), stat='identity') +
   xlab('Sample Name') + ylab('Ratio of Red to Green median Intens.') +
@@ -198,8 +197,6 @@ PCA_chr_X_Y <- ggplot(PCA_result_scores,aes(x=PC1,y=PC2,color = Gender)) +
 
 ggsave(paste0(brando_path,"/Results/Quality_control/PCA_chromosome_X_and_Y_01-29-2024.png"), 
        PCA_chr_X_Y)
-
-
 
 
 ##4.4 Removal of sex chromosomes
@@ -285,7 +282,7 @@ length(coefEN$CpGmarker[-1]) - sum(coefEN$CpGmarker[-1] %in% rownames(EPICv2_cpg
 length(coefHorvath$CpGmarker[-1]) - sum(coefHorvath$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
 length(coefSkin$CpGmarker[-1]) - sum(coefSkin$CpGmarker[-1] %in% rownames(EPICv2_cpgs))
 
-##### 5. DNAm Mixture deconvolution  and Age prediction offender -----------------------------------------------------
+##### 5. DNAm Mixture deconvolution and Age prediction offender -----------------------------------------------------
 mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
                                   proportion_offender = 1){
   beta_offender <- (((proportion_victim + proportion_offender) * beta_mixture) - (proportion_victim * beta_victim)) / proportion_offender
@@ -365,6 +362,7 @@ metadata_AE_pred_age <- merge(metadata, df_absolute_error_ages, by="Sample_name"
 write_xlsx(metadata_pred_age, paste0(results_path, "/2_Age_prediction/Predicted_age_DNA_mixtures_02-09-2025.xlsx"))
 write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_02-09-2025.xlsx"))
 
+saveRDS(df_reconstructured_DNAm_profile, paste0(brando_path, "/Reconstructed_beta_values_age_pred_DNAm_mixture_02-09-2025.rds"))
 
 ## Result tables creation
 AE_predicted_age <- metadata_AE_pred_age[, c(1, 14, 15, 16, 17)]
@@ -401,7 +399,6 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_02-09-2025.xlsx"))
 
 
-
 ##Check missing CpGs
 missing_df <- data.frame(matrix(nrow=ncol(betas_cg_autosomal_collps_no_NAs), ncol=4))
 colnames(missing_df) <- c("BLUP", "EN", "Horvath", "skinHorvath")
@@ -427,8 +424,150 @@ rownames(missing_df) <- "N. of missing cpgs"
 missing_df <- data.frame(RowNames = rownames(missing_df), missing_df)
 write_xlsx(missing_df, paste0(brando_path, "/Results/2_Age_prediction/Missing_CpGs_clocks.xlsx"))
 
+##### 6. Investigation accuracy in reconstructing DNAm profile --------------------------------------------------
+df_reconstructured_DNAm_profile <- readRDS(file= paste0(brando_path, "/Reconstructed_beta_values_age_pred_DNAm_mixture_02-09-2025.rds"))
 
-##### 6. DNAm Mixture deconvolution  and Age prediction victim -----------------------------------------------------
+#Upload clocks
+checkClocks(df_reconstructured_DNAm_profile)
+
+median_delta_betas_DNAm_profiles <- data.frame(matrix(nrow = ncol(df_reconstructured_DNAm_profile), ncol = 4))
+
+#name <- "AA_AB_1_4_A"
+n <- 1
+for (name in colnames(df_reconstructured_DNAm_profile)){
+  if (nchar(name) < 5){ next }
+  print(name)
+  name_victim <- substring(name, 4, 5)
+  name_offender <- substring(name, 1, 2)
+  DNAm_profile_ss <- betas_cg_autosomal_collps_no_NAs[,colnames(betas_cg_autosomal_collps_no_NAs) == name_offender]
+  DNAm_profile_sample <- df_reconstructured_DNAm_profile[,colnames(df_reconstructured_DNAm_profile) == name]
+  
+  absolute_error_mixture <- abs(DNAm_profile_sample - DNAm_profile_ss)
+  median_delta_betas_DNAm_profiles[n, 1] <- median(absolute_error_mixture[coefHorvath$CpGmarker[-1]], na.rm = TRUE)
+  median_delta_betas_DNAm_profiles[n, 2] <- median(absolute_error_mixture[coefSkin$CpGmarker[-1]], na.rm = TRUE)
+  median_delta_betas_DNAm_profiles[n, 3] <- median(absolute_error_mixture[coefBLUP$CpGmarker[-1]], na.rm = TRUE)
+  median_delta_betas_DNAm_profiles[n, 4] <- median(absolute_error_mixture[coefEN$CpGmarker[-1]], na.rm = TRUE)
+  
+  median_delta_betas_DNAm_profiles$Sample_name[n] <- name
+  n <- n + 1
+}
+
+colnames(median_delta_betas_DNAm_profiles) <- c("Error_Horvath", "Error_skinHorvath", "Error_BLUP", "Error_EN", "Sample_name")
+
+median_delta_betas_DNAm_profiles$Mixture_type <- substring(median_delta_betas_DNAm_profiles$Sample_name, 1, nchar(median_delta_betas_DNAm_profiles$Sample_name) - 2)
+
+median_delta_betas_DNAm_profiles$Mixture_type <- factor(median_delta_betas_DNAm_profiles$Mixture_type, levels=c("AA_AB_1_1",	"AA_AB_2_1",	"AA_AB_4_1",	"AA_AB_10_1",	"AA_AB_1_2",	"AA_AB_1_4",	"AA_AB_1_10",	"AE_AF_1_1",	
+                                                                                  "AE_AF_2_1",	"AE_AF_4_1",	"AE_AF_10_1",	"AE_AF_1_2",	"AE_AF_1_4",	"AE_AF_1_10"))
+median_delta_betas_DNAm_profiles$Replicate <- substring(median_delta_betas_DNAm_profiles$Sample_name, nchar(median_delta_betas_DNAm_profiles$Sample_name), 
+                                                        nchar(median_delta_betas_DNAm_profiles$Sample_name))
+
+
+median_delta_betas_DNAm_profiles <- median_delta_betas_DNAm_profiles[order(median_delta_betas_DNAm_profiles$Mixture_type),]
+median_delta_betas_DNAm_profiles[,-c(5,6,7)] <- round(median_delta_betas_DNAm_profiles[,-c(5,6,7)], 4)
+median_delta_betas_DNAm_profiles$Individuals <- substring(as.character(median_delta_betas_DNAm_profiles$Mixture_type),1,5)
+median_delta_betas_DNAm_profiles$Ratio <- substring(median_delta_betas_DNAm_profiles$Mixture_type, 7, 10)
+median_delta_betas_DNAm_profiles$Ratio <- gsub("_", ":", median_delta_betas_DNAm_profiles$Ratio)
+STR_ratio_add <- STR_ratio[,c(1, 7, 8)]
+colnames(STR_ratio_add)[1] <- "Mixture_type"
+median_delta_betas_DNAm_profiles <- merge(median_delta_betas_DNAm_profiles, STR_ratio_add, by="Mixture_type")
+
+for (n in 1:nrow(median_delta_betas_DNAm_profiles)){
+  if (substring(median_delta_betas_DNAm_profiles[n,1], 1, 2) == median_delta_betas_DNAm_profiles[n,"Match1"]){
+    median_delta_betas_DNAm_profiles$STR_ratio[n] <- paste0(round(median_delta_betas_DNAm_profiles[n,"Ratio.y"], 1), ":1")
+  } else {
+    median_delta_betas_DNAm_profiles$STR_ratio[n] <- paste0("1:", round(median_delta_betas_DNAm_profiles[n,"Ratio.y"], 1))
+  }
+}
+
+median_delta_betas_DNAm_profiles <- median_delta_betas_DNAm_profiles[,-c(10, 11, 12)]
+colnames(median_delta_betas_DNAm_profiles)[9] <- "Theoretical_ratio"
+
+write_xlsx(median_delta_betas_DNAm_profiles, paste0(results_path, "/2_Age_prediction/Median_delta_betas_reconstructed_DNAm_profiles_03-09-2025.xlsx"))
+
+#Plot error of reconstructed DNAm profiles
+median_delta_betas_DNAm_profiles <- median_delta_betas_DNAm_profiles[,-c(6,8)]
+
+median_delta_betas_DNAm_profiles_long <- median_delta_betas_DNAm_profiles %>%
+  pivot_longer(cols = -c(Mixture_type, Theoretical_ratio, Replicate),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+
+median_delta_betas_DNAm_profiles_long$Theoretical_ratio <- factor(median_delta_betas_DNAm_profiles_long$Theoretical_ratio, levels = c("10:1", "4:1", "2:1", "1:1","1:2", "1:4", "1:10"))
+median_delta_betas_DNAm_profiles_long$Pair <- substr(median_delta_betas_DNAm_profiles_long$Mixture_type, 1, 5)
+median_delta_betas_DNAm_profiles_long$Clock <- paste(gsub("Error_","", median_delta_betas_DNAm_profiles_long$Clock), "clock")
+
+
+#Change AE-AF in AC-AD
+median_delta_betas_DNAm_profiles_long$Mixture_type <- gsub("AA_AB", "M1_F1", median_delta_betas_DNAm_profiles_long$Mixture_type)
+median_delta_betas_DNAm_profiles_long$Mixture_type <- gsub("AE_AF", "M2_F2", median_delta_betas_DNAm_profiles_long$Mixture_type)
+
+median_delta_betas_DNAm_profiles_long$Pair <- gsub("AA_AB", "M1 F1", median_delta_betas_DNAm_profiles_long$Pair)
+median_delta_betas_DNAm_profiles_long$Pair <- gsub("AE_AF", "M2 F2", median_delta_betas_DNAm_profiles_long$Pair)
+median_delta_betas_DNAm_profiles_long$Pair <- gsub(" ", "-", median_delta_betas_DNAm_profiles_long$Pair)
+#median_delta_betas_DNAm_profiles_long$Clock <- paste(median_delta_betas_DNAm_profiles_long$Clock, "clock")
+median_delta_betas_DNAm_profiles_long$Mixture_type <- substr(median_delta_betas_DNAm_profiles_long$Mixture_type, 1, 5)
+
+max(median_delta_betas_DNAm_profiles_long$Errors)
+# Define custom colors
+pair_colors <- c("M1-F1" = "#028FFB", "M2-F2" = "#FB6E02")
+ref_colors <- c("M1" = "#4DB1FE", "M2" = "#FD9341")
+
+MAE_plot <- ggplot(
+  median_delta_betas_DNAm_profiles_long,
+  aes(
+    x = Theoretical_ratio,
+    y = Errors,
+    color = Pair,
+    shape = Replicate,   # distinguish A vs B
+    group = interaction(Pair, Replicate)
+  )
+) +
+  geom_point(size = 3, position = position_dodge(width = 0.25)) +
+  
+  facet_wrap(~ Clock) +
+  coord_cartesian(ylim = c(0, 0.18)) +
+  theme_minimal() +
+  
+  # Manual color scale for Pairs
+  scale_color_manual(
+    values = pair_colors,
+    name = "Mixture"
+  ) +
+  guides(
+    color = guide_legend(order = 1),
+    shape = guide_legend(order = 2)
+  ) +
+  # Shapes for Replicates
+  scale_shape_manual(
+    values = c("A" = 16, "B" = 17), # filled circle and triangle
+    name = "Replicate"
+  ) +
+  
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.text.x = element_text(angle = -45, vjust = 0, hjust = 0.1),
+    legend.position = "top",
+    panel.grid.major.x = element_line(color = "grey", size = 0.4),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "lightgrey"),
+    panel.grid.minor.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1),
+    panel.spacing.x = unit(1.5, "lines"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 15),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 15),
+    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+  ) +
+  xlab("Suspect-to-Victim Ratio") +
+  ylab("Median |Δβ|")
+
+ggsave(paste0(results_path,"/2_Age_prediction/Median_delta_betas_reconstructed_DNAm_profiles_02-09-2025.png"), 
+       MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
+
+##### 7. DNAm Mixture deconvolution and Age prediction victim -----------------------------------------------------
 mixture_deconvolution <- function(beta_mixture, beta_victim, proportion_victim = 1,
                                   proportion_offender = 1){
   beta_offender <- (((proportion_victim + proportion_offender) * beta_mixture) - (proportion_victim * beta_victim)) / proportion_offender
@@ -532,7 +671,10 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_victim_10-10-2024.xlsx"))
 
-##### 7. Age prediction in single source samples and age prediction from mixture using single-source sample as reference-----------------------------------------------------
+
+
+
+##### 8. Age prediction in single source samples and age prediction from mixture using single-source sample as reference-----------------------------------------------------
 betas_single_source <- betas_cg_autosomal_collps_no_NAs[, c("AA","AB", "AE", "AF")]
 
 df_for_prediction <- data.frame(rownames(betas_cg_autosomal_collps_no_NAs), betas_single_source)
@@ -611,7 +753,7 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx"))
 
 
-#### 8. Upload of RSD data --------------------------------------------------------------------
+#### 9. Upload of RSD data --------------------------------------------------------------------
 betas <- readRDS(paste0(brando_path,"/Data/beta_values_age_pred_DNAm_mixture_18-07-2024.rds")) # no normalize for batch effect
 metadata <- read.table(file = paste0(brando_path,'/Metadata/metadata_complete_30-08-2025.tsv'), sep = '\t', header = TRUE)
 STR_ratio <- read_xlsx(path = paste0(brando_path,'/Results/0_Ratio_quantification/AgePredictionMixtures/AgePredictionMixtures_STRmixSummary.xlsx'))
@@ -619,7 +761,7 @@ STR_ratio <- STR_ratio[, c(1:7)]
 STR_ratio$Ratio <- STR_ratio$Component1 / STR_ratio$Component2
 betas_cg_autosomal_collps_no_NAs <- readRDS(file.path(brando_path, "/Data/betas_cg_autosomal_collps_30-09-2024.rds"))
 
-#### 9. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
+#### 10. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
 Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
 Predicted_age_single_source <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_02-09-2025.xlsx'))
 colnames(Predicted_age)[7] <- "Theoretical_ratio"
