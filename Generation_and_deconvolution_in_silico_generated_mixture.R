@@ -21,9 +21,9 @@ library(tidyverse)
 
 #Set paths
 #idat_dir <- "N:/projects/age_epic_array_blood_stains_4103/local_data"
-EPIC_bloodstain_path <- "N:/projects/age_epic_array_blood_stains_4103/users/lfw156"
+EPIC_bloodstain_path <- "mnt/ngs/projects/age_epic_array_blood_stains_4103/users/lfw156"
 #annotation_files_path <- "G:/FAELLES/Dokumenter/BRP/5_Projects/EPIC_annotations_files/"
-results_path <- "N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results/4_impact_of_variables/"
+results_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results/4_impact_of_variables/"
 
 #### 2. Upload saved data (If you do not need to upload saved data skip this step)--------------------------------------------
 beta_values_autosomal_cgch_noNAs <- readRDS(file.path(EPIC_bloodstain_path, "/Data/beta_values_autosomal_cgch_noNAs_collps_bloodstains_wide_06-02-2024.rds"))
@@ -33,12 +33,15 @@ beta_values_autosomal_cg_noNAs <- beta_values_autosomal_cgch_noNAs[cg_ch_probes,
 metadata_bloodstains <- read.table(paste0(EPIC_bloodstain_path, "/Metadata/metadata_bloodstains_tidied_26-01-2024.tsv")) 
 predicted_age <- read_xlsx(paste0(EPIC_bloodstain_path,'/Results/4_methylclok_age_prediction/Predicted_age_methylclock_07-02-2024.xlsx'))
 
-betas_autosomal_cpgs_noNAs_2021 <- readRDS("N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/beta_values_longitudinal_study_2021_22-11-2024.rds")
-predicted_age_metadata_2021 <- read_xlsx('N:/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/Metadata_and_predicted_age_longitudinal_study_2021_22-11-2024.xlsx')
+betas_autosomal_cpgs_noNAs_2021 <- readRDS("/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/beta_values_longitudinal_study_2021_22-11-2024.rds")
+predicted_age_metadata_2021 <- read_xlsx('/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Data/Metadata_and_predicted_age_longitudinal_study_2021_22-11-2024.xlsx')
 
 df <- readRDS(paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_09-01-2025.rds"))    
 
 df_long <- readRDS(paste0(results_path, "Age_prediction_Age_gap_simulations_Longitudinal_data_22-07-2025.rds"))    
+
+#Upload datasets
+df <- readRDS(paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_22-07-2025.rds"))
 
 #### 3. Generation and Deconvolution of Mixture--------------------------------------------
 
@@ -124,9 +127,24 @@ shuffled_vector <- sample(individuals)
 # Create random pairs
 random_pairs <- matrix(individuals, ncol = 2, byrow = TRUE)
 
+#Upload cpg of epigenetic clock to asses reconstruction of DNAm profile
+checkClocks(betas_autosomal_cpgs_noNAs_2021)
+
 # Display the pairs
 random_pairs
 predicted_age_metadata_2021 <- as.data.frame(predicted_age_metadata_2021)
+
+#Initialize dataset:
+median_betas_reconstructed_profile <- data.frame(
+  Ratio = character(),
+  Tecnical_error = numeric(),
+  Horvath = numeric(),
+  SkinHorvath = numeric(),
+  BLUP = numeric(),
+  EN = numeric(),
+  stringsAsFactors = FALSE
+)
+
 f <- 123
 for (n in 1:nrow(random_pairs)){
   victim_name <- random_pairs[n,][1] 
@@ -179,22 +197,40 @@ for (n in 1:nrow(random_pairs)){
                                                         beta_value_victim, 
                                                         ratio_victim = ratio_victim, ratio_offender = ratio_offender)
         
+        
+
         #sum(beta_offender_55_ratio > 1)
         #sum(beta_offender_55_ratio < 0)
         #Correct beta values of the offender
         beta_offender_55_ratio[beta_offender_55_ratio > 1] <- 1
         beta_offender_55_ratio[beta_offender_55_ratio < 0] <- 0
+        
+        #Assess performance of deconvolution and recreation of DNAm profile of offender  performed 
+        absolute_error_mixture <- abs(beta_offender_55_ratio - betas_autosomal_cpgs_noNAs_2021[,offender_name])
+        names(absolute_error_mixture) <- rownames(betas_autosomal_cpgs_noNAs_2021)
+        median_delta_betas_vector <- data.frame(
+          Ratio = ratio,
+          Tecnical_error = err,
+          Horvath = median(absolute_error_mixture[coefHorvath$CpGmarker[-1]], na.rm = TRUE),
+          SkinHorvath = median(absolute_error_mixture[coefSkin$CpGmarker[-1]], na.rm = TRUE),
+          BLUP = median(absolute_error_mixture[coefBLUP$CpGmarker[-1]], na.rm = TRUE),
+          EN = median(absolute_error_mixture[coefEN$CpGmarker[-1]], na.rm = TRUE)
+        )
+        
+        median_betas_reconstructed_profile <- rbind(median_betas_reconstructed_profile, median_delta_betas_vector)
+        
+        
         #Predict age (we duplicate beta_offender_55_ratio in the dataframe because methylclock package need at least two individuals to infer the age)
-        df_for_prediction <- data.frame(rownames(betas_autosomal_cpgs_noNAs_2021),
-                                        beta_offender_55_ratio,
-                                        beta_offender_55_ratio)
-        predicted_age_mixture <- DNAmAge(df_for_prediction, clocks = c("BLUP", "EN", "Horvath", "skinHorvath"))
-        colnames(predicted_age_mixture)[1] <- "Ratio"
-        predicted_age_mixture$Ratio <- ratio
-        predicted_age_mixture$Tecnical_error <- err
-        
-        
-        table_pred_age_main_contr <- rbind(table_pred_age_main_contr, predicted_age_mixture[1,])
+        # df_for_prediction <- data.frame(rownames(betas_autosomal_cpgs_noNAs_2021),
+        #                                 beta_offender_55_ratio,
+        #                                 beta_offender_55_ratio)
+        # predicted_age_mixture <- DNAmAge(df_for_prediction, clocks = c("BLUP", "EN", "Horvath", "skinHorvath"))
+        # colnames(predicted_age_mixture)[1] <- "Ratio"
+        # predicted_age_mixture$Ratio <- ratio
+        # predicted_age_mixture$Tecnical_error <- err
+        # 
+        # 
+        # table_pred_age_main_contr <- rbind(table_pred_age_main_contr, predicted_age_mixture[1,])
       }}
     
     
@@ -206,16 +242,25 @@ for (n in 1:nrow(random_pairs)){
     } else {
       df[, c(3,4,5,6)] <- df[, c(3,4,5,6)] + table_pred_age_main_contr[, c(3,4,5,6)]
     }
-    
-    
   }
-  
-  
   }
 
 
 saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_22-07-2025.rds"))
+saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_11-09-2025.rds"))
 
+median_betas_reconstructed_profile[,c(3:6)] <- round(median_betas_reconstructed_profile[,c(3:6)] ,5)
+
+#Average median beta reconstructed profile for the three iteration and 32 individuals 
+median_betas_summary <- median_betas_reconstructed_profile %>%
+  group_by(Ratio, Tecnical_error) %>%
+  summarise(
+    Horvath = median(Horvath, na.rm = TRUE),
+    SkinHorvath = median(SkinHorvath, na.rm = TRUE),
+    BLUP = median(BLUP, na.rm = TRUE),
+    EN = median(EN, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 df[, c(3,4,5,6)] <- df[, c(3,4,5,6)]/(32*3)
 
@@ -235,7 +280,7 @@ df_long$Ratio <- gsub("10:1_old", "1:10", df_long$Ratio)
 df_long$Ratio <- gsub("1:4_old", "4:1", df_long$Ratio)
 df_long$Ratio <- gsub("4:1_old", "1:4", df_long$Ratio)
 df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
-
+df_long$Clock <- paste(df_long$Clock, "clock")
 
 plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, group = interaction(Ratio, Clock))) +
   geom_line(size = 1) +  # Connect points with lines
@@ -243,9 +288,9 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
   facet_wrap(~ Clock) +  # Facet by the "Group" variable
   theme_minimal() +  # Use a minimal theme
   labs(title = "",
-       x = "DNAm Technology Precision (Δβ Between Replicates)",
-       y = "MAE (Years)",
-       color = "Offender-to-Victim Ratio") +
+       x = "DNAm Technology Error (|Δβ| Between Replicates)",
+       y = "MAE (years)",
+       color = "Suspect-to-Victim Ratio") +
   coord_cartesian(ylim = c(0, 25)) +
   scale_x_continuous(breaks = c(0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1),
                      #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
@@ -266,17 +311,15 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
     legend.text = element_text(size = 14),   # Increase legend text size
     legend.title = element_text(size = 15),
     plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+  ) + theme(
+    plot.margin = unit(c(1, 1, 1, 1.5), "cm")  # top, right, bottom, left
   )
 
 plot_tecn_err
-ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_22-07-2025.png"), 
-       plot_tecn_err, width = 11, height = 7, dpi = 600, bg = "white")
+ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_03-09-2025.png"), 
+       plot_tecn_err, width = 11, height = 7, dpi = 600, bg = "white", limitsize = FALSE)
 
 
-plot_tecn_err
-ggsave(paste0(results_path,"Plot_tecnical_error_simulation_10_14-10-2024.png"), 
-       plot_tecn_err, width = 13, height = 8, dpi = 600, bg = "white")
- 
 #### 5. Test impact of STR ratio calculation (cohort 63 individuals, Publication) -------------------------------
 
 predicted_age_metadata_2021

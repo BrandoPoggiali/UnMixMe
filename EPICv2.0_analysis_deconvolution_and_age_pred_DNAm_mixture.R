@@ -776,4 +776,3 @@ MAE_plot
 
 ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_ss_02-09-2025.png"), 
        MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
-
