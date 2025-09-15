@@ -256,8 +256,6 @@ median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas
 
 ## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
 median_betas_reconstructed_profile[,c(3:6)] <- round(median_betas_reconstructed_profile[,c(3:6)], 9)
-median_betas_reconstructed_profile <- median_betas_reconstructed_profile[,-c(4:6)]
-colnames(median_betas_reconstructed_profile)[3] <- "diff_betas"
 
 #Average median beta reconstructed profile for the three iteration and 32 individuals 
 median_betas_summary <- median_betas_reconstructed_profile %>%
@@ -343,7 +341,6 @@ ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_prec
 
 
 
-
 ## Plotting age prediction accuracy in EPIC v2.0 precision analysis
 df[, c(3,4,5,6)] <- df[, c(3,4,5,6)]/(32*3)
 
@@ -423,6 +420,16 @@ predicted_age_metadata_2021 <- as.data.frame(predicted_age_metadata_2021)
 #ratio <- "10:1"
 #err <- 2
 
+#Initialize dataset:
+median_betas_reconstructed_profile <- data.frame(
+  Ratio = character(),
+  Tecnical_error = numeric(),
+  Horvath = numeric(),
+  SkinHorvath = numeric(),
+  BLUP = numeric(),
+  EN = numeric(),
+  stringsAsFactors = FALSE
+)
 
 for (n in 1:nrow(random_pairs)){
   victim_name <- random_pairs[n,][1]
@@ -500,6 +507,21 @@ for (n in 1:nrow(random_pairs)){
       #Correct beta values of the offender
       beta_offender_55_ratio[beta_offender_55_ratio > 1] <- 1
       beta_offender_55_ratio[beta_offender_55_ratio < 0] <- 0
+      
+      #Assess performance of deconvolution and recreation of DNAm profile of offender  performed 
+      absolute_error_mixture <- abs(beta_offender_55_ratio - betas_autosomal_cpgs_noNAs_2021[,offender_name])
+      names(absolute_error_mixture) <- rownames(betas_autosomal_cpgs_noNAs_2021)
+      median_delta_betas_vector <- data.frame(
+        Ratio = ratio,
+        Tecnical_error = err,
+        Horvath = median(absolute_error_mixture[coefHorvath$CpGmarker[-1]], na.rm = TRUE),
+        SkinHorvath = median(absolute_error_mixture[coefSkin$CpGmarker[-1]], na.rm = TRUE),
+        BLUP = median(absolute_error_mixture[coefBLUP$CpGmarker[-1]], na.rm = TRUE),
+        EN = median(absolute_error_mixture[coefEN$CpGmarker[-1]], na.rm = TRUE)
+      )
+      
+      median_betas_reconstructed_profile <- rbind(median_betas_reconstructed_profile, median_delta_betas_vector)
+      
       #Predict age (we duplicate beta_offender_55_ratio in the dataframe because methylclock package need at least two individuals to infer the age)
       df_for_prediction <- data.frame(rownames(betas_autosomal_cpgs_noNAs_2021),
                                       beta_offender_55_ratio,
@@ -523,10 +545,88 @@ for (n in 1:nrow(random_pairs)){
 }
 
 
-
+#Divide by the total number of DNA mixture pair and save
 df[, c(3,4,5,6)] <- df[, c(3,4,5,6)]/32
 saveRDS(df, paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_09-01-2025.rds"))
+saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_15-09-2025.rds"))
 
+
+## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
+#Average median beta reconstructed profile for the three iteration and 32 individuals 
+median_betas_summary <- median_betas_reconstructed_profile %>%
+  group_by(Ratio, Tecnical_error) %>%
+  summarise(
+    Horvath = mean(Horvath, na.rm = TRUE),
+    BLUP= mean(BLUP, na.rm = TRUE),
+    SkinHorvath = mean(SkinHorvath, na.rm = TRUE),
+    EN = mean(EN, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+median_betas_reconstructed_profile[,c(3:6)] <- round(median_betas_reconstructed_profile[,c(3:6)], 9)
+
+median_betas_summary_long <- median_betas_summary %>%
+  pivot_longer(cols = -c(Ratio, Tecnical_error),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+median_betas_summary_long$Ratio[median_betas_summary_long$Ratio == "50:50"] <- "1:1"
+median_betas_summary_long$Ratio[median_betas_summary_long$Ratio == "20:80"] <- "1:4"
+median_betas_summary_long$Ratio[median_betas_summary_long$Ratio == "80:20"] <- "4:1"
+median_betas_summary_long$Ratio[median_betas_summary_long$Ratio == "90.90909090:9.09090909"] <- "10:1"
+median_betas_summary_long$Ratio[median_betas_summary_long$Ratio == "9.09090909:90.90909090"] <- "1:10"
+
+median_betas_summary_long$Ratio <- factor(median_betas_summary_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+
+#Invert ratio
+median_betas_summary_long$Ratio <- paste0(median_betas_summary_long$Ratio, "_old")
+
+median_betas_summary_long$Ratio <- gsub("1:1_old", "1:1", median_betas_summary_long$Ratio)
+median_betas_summary_long$Ratio <- gsub("1:10_old", "10:1", median_betas_summary_long$Ratio)
+median_betas_summary_long$Ratio <- gsub("10:1_old", "1:10", median_betas_summary_long$Ratio)
+median_betas_summary_long$Ratio <- gsub("1:4_old", "4:1", median_betas_summary_long$Ratio)
+median_betas_summary_long$Ratio <- gsub("4:1_old", "1:4", median_betas_summary_long$Ratio)
+median_betas_summary_long$Ratio <- factor(median_betas_summary_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+median_betas_summary_long$Clock <- paste(median_betas_summary_long$Clock, "clock")
+
+beta_err_STR_plot_analysis <- ggplot(median_betas_summary_long, aes(x = Tecnical_error, y = Errors, color = Ratio, group = interaction(Ratio, Clock))) +
+  geom_line(size = 1) +  # Connect points with lines
+  geom_point(size = 2) +  # Optional: Add points at each time point
+  facet_wrap(~ Clock) +  # Facet by the "Group" variable
+  theme_minimal() +  # Use a minimal theme
+  labs(title = "",
+       x = "Error in Victim DNA Proportion (%)",
+       y = "Median |Δβ|",
+       color = "Suspect-to-Victim Ratio") +
+  coord_cartesian(ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = c(-5, -3, -2, -1, 0, 1, 2, 3, 5),
+                     #                    #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
+                     expand = c(0.005, 0.005)) +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),  # Customize facet labels
+    axis.text = element_text(size = 12),  # Customize axis text
+    axis.text.x = element_text(angle = 0,vjust = 0, hjust = 0.1, size = 12),  # Customize axis text
+    legend.position = "top",  # Position the legend at the top
+    panel.grid.major.x = element_line(color = "grey", size = 0.4),  # Set the x-axis major grid lines
+    panel.grid.minor.x = element_blank(),  # Remove minor grid lines on the x-axis
+    panel.grid.major.y = element_line(color = "lightgrey"),  # Keep y-axis grid lines
+    panel.grid.minor.y = element_blank(),  # Remove y-axis minor grid lines
+    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Set border
+    panel.spacing.x = unit(1.5, "lines"),
+    axis.title.x = element_text(size = 14, margin = margin(t=10)),  # Increase x-axis title size
+    axis.title.y = element_text(size = 14),
+    legend.text = element_text(size = 14),   # Increase legend text size
+    legend.title = element_text(size = 15),
+    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+  )
+
+
+ggsave(paste0(results_path,"Median_delta_betas_reconstructed_DNAm_profiles_STR_analysis_15-09-2025.png"), 
+       beta_err_STR_plot_analysis, width = 11, height = 7, dpi = 600, bg = "white")
+
+
+
+## Plot age prediction accuracy for STR ratio estimation error
 df_long <- df %>%
   pivot_longer(cols = -c(Ratio, Tecnical_error),
                names_to = "Clock", 
@@ -551,6 +651,7 @@ df_long$Ratio <- gsub("10:1_old", "1:10", df_long$Ratio)
 df_long$Ratio <- gsub("1:4_old", "4:1", df_long$Ratio)
 df_long$Ratio <- gsub("4:1_old", "1:4", df_long$Ratio)
 df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+df_long$Clock <- paste(df_long$Clock, "clock")
 
 STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, group = interaction(Ratio, Clock))) +
   geom_line(size = 1) +  # Connect points with lines
@@ -558,9 +659,9 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
   facet_wrap(~ Clock) +  # Facet by the "Group" variable
   theme_minimal() +  # Use a minimal theme
   labs(title = "",
-       x = "Raw Ratio Estimation Error of Victim Proportion",
-       y = "MAE (Years)",
-       color = "Offender-to-Victim Ratio") +
+       x = "Error in Victim DNA Proportion (%)",
+       y = "MAE (years)",
+       color = "Suspect-to-Victim Ratio") +
   coord_cartesian(ylim = c(0, 16)) +
   scale_x_continuous(breaks = c(-5, -3, -2, -1, 0, 1, 2, 3, 5),
                      #                    #labels = c("0", "0.005", "0.01", "0.02", "0.03", "0.05", "0.1"),
@@ -584,7 +685,7 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
   )
 
 
-ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_21-07-2025.png"), 
+ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_15-09-2025.png"), 
        STR_plot, width = 11, height = 7, dpi = 600, bg = "white")
 
 
