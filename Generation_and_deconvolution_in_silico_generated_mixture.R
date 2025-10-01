@@ -1020,3 +1020,93 @@ shapiro.test(df_long_BLUP[df_long_BLUP$Ratio == "10:1" & df_long_BLUP$Age_gap ==
 
 
 
+
+
+#### 8. Test impact of age differences on age prediction of mixture with suspect-to-victim 1:10 using Pearson correlation -------------------------
+predicted_age_metadata_2021
+predicted_age_metadata_2021$AE <- round(abs(predicted_age_metadata_2021$Age - predicted_age_metadata_2021$BLUP), 2)
+
+individuals <- colnames(betas_autosomal_cpgs_noNAs_2021)
+shuffled_vector <- sample(individuals)
+
+# Create random pairs
+random_pairs <- matrix(individuals, ncol = 2, byrow = TRUE)
+
+#Upload cpg of epigenetic clock to asses reconstruction of DNAm profile
+checkClocks(betas_autosomal_cpgs_noNAs_2021)
+
+# Display the pairs
+random_pairs
+predicted_age_metadata_2021 <- as.data.frame(predicted_age_metadata_2021)
+
+#Create empty dataset
+table_pred_age_main_contr <- data.frame(age_gap = character(),
+                                        BLUP_ss = numeric(),
+                                        EN_ss = numeric(),
+                                        Horvath_ss = numeric(),
+                                        skinHorvath_ss = numeric(),
+                                        BLUP = numeric(),
+                                        EN = numeric(),
+                                        Horvath = numeric(),
+                                        skinHorvath = numeric())
+
+n <- 1
+f <- 123
+for (n in 1:nrow(random_pairs)){
+  victim_name <- random_pairs[n,][1] 
+  offender_name <- random_pairs[n,][2] 
+  
+  for (i in c(1:3)){
+    ratio <-  "10:1"
+    err <- 0.01 
+    set.seed(f) 
+      #Create mixture
+      ratio_split <- strsplit(ratio, ":")
+      ratio_victim <- as.numeric(ratio_split[[1]][1])
+      ratio_offender <- as.numeric(ratio_split[[1]][2])
+
+      print(paste(i, ratio, err))
+      random_signs <- sample(c(-1, 1), nrow(betas_autosomal_cpgs_noNAs_2021), replace = TRUE)
+      random_errors <- random_signs * err
+      beta_value_victim <- betas_autosomal_cpgs_noNAs_2021[,victim_name] + random_errors
+      beta_value_victim[beta_value_victim > 1] <- 1
+      beta_value_victim[beta_value_victim < 0] <- 0
+      mixture_28_55_ratio <- mixture_generator(beta_victim=betas_autosomal_cpgs_noNAs_2021[,victim_name],
+                                               beta_offender_1=betas_autosomal_cpgs_noNAs_2021[,offender_name],
+                                               ratio_victim = ratio_victim, ratio_offender = ratio_offender)
+      
+      #Deconvolute mixture, extract beta value offender with known beta value victim
+      beta_offender_55_ratio <- mixture_deconvolution(mixture_28_55_ratio, 
+                                                      beta_value_victim, 
+                                                      ratio_victim = ratio_victim, ratio_offender = ratio_offender)
+      
+      #Correct beta values of the offender
+      beta_offender_55_ratio[beta_offender_55_ratio > 1] <- 1
+      beta_offender_55_ratio[beta_offender_55_ratio < 0] <- 0
+      
+      #Predict age (we duplicate beta_offender_55_ratio in the dataframe because methylclock package need at least two individuals to infer the age)
+      df_for_prediction <- data.frame(rownames(betas_autosomal_cpgs_noNAs_2021),
+                                        beta_offender_55_ratio,
+                                        beta_offender_55_ratio)
+      predicted_age_mixture <- DNAmAge(df_for_prediction, clocks = c("BLUP", "EN", "Horvath", "skinHorvath"))
+      
+      if (i ==1 ){
+        predicted_age_mixture_mean <- predicted_age_mixture[1,-1]
+      } else {
+        predicted_age_mixture_mean <- predicted_age_mixture_mean + predicted_age_mixture[1,-1]
+      }
+  }
+        
+    #Calculate age gap and age in single-source samples
+    age_gap <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == victim_name,"Age"] - predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
+    predicted_age_ss <- predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,c("BLUP", "EN", "Horvath", "skinHorvath")]
+    colnames(predicted_age_ss) <- c("BLUP_ss", "EN_ss", "Horvath_ss", "skinHorvath_ss")
+    info_pair <- cbind(age_gap, predicted_age_ss, predicted_age_mixture_mean)
+    
+    table_pred_age_main_contr <- rbind(table_pred_age_main_contr, info_pair)
+    
+    }
+  
+table_pred_age_main_contr
+
+saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
