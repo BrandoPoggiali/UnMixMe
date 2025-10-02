@@ -1065,7 +1065,7 @@ for (n in 1:nrow(random_pairs)){
       ratio_victim <- as.numeric(ratio_split[[1]][1])
       ratio_offender <- as.numeric(ratio_split[[1]][2])
 
-      print(paste(i, ratio, err))
+      print(paste(n, i, ratio, err))
       random_signs <- sample(c(-1, 1), nrow(betas_autosomal_cpgs_noNAs_2021), replace = TRUE)
       random_errors <- random_signs * err
       beta_value_victim <- betas_autosomal_cpgs_noNAs_2021[,victim_name] + random_errors
@@ -1099,7 +1099,7 @@ for (n in 1:nrow(random_pairs)){
         
     #Calculate age gap and age in single-source samples
     age_gap <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == victim_name,"Age"] - predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
-    predicted_age_ss <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,c("BLUP", "EN", "Horvath", "skinHorvath")] -
+    predicted_age_ss <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name, c("BLUP", "EN", "Horvath", "skinHorvath")] -
       predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
     colnames(predicted_age_ss) <- c("BLUP_ss", "EN_ss", "Horvath_ss", "skinHorvath_ss")
     info_pair <- cbind(age_gap, predicted_age_ss, predicted_age_mixture_mean)
@@ -1207,7 +1207,10 @@ ss_error_age_long <- ss_error_age %>%
     names_sep = "_"
   )
 
+# Factor levels for ratio (legend order)
+ss_error_age_long$Clock <- paste(ss_error_age_long$Clock, "clock")
 
+#Calculate correlation
 cor_df <- ss_error_age_long %>%
   group_by(Clock) %>%
   summarise(
@@ -1219,6 +1222,50 @@ cor_df <- ss_error_age_long %>%
     p = sapply(cor_res, \(x) signif(x$p.value, 3)),
     label = paste0("r = ", r, ", p = ", p)
   )
+
+# Choose where to place labels (adjust y/x as needed)
+cor_df$x <- 6   # for example, left side
+cor_df$y <- 24   # near the top
+
+
+age_ss_plot <- ggplot(ss_error_age_long, aes(x = Age, y = Error)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", se = FALSE, color = "#63a7ff") +
+  facet_wrap(~ Clock) +
+  geom_text(
+    data = cor_df,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    hjust = 1, vjust = 1, size = 4
+  ) +
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 25)) +
+  scale_x_continuous(expand = c(0.1, 0.1)) +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0),
+    legend.position = "top",
+    panel.grid.major.x = element_line(color = "grey", size = 0.4),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "lightgrey"),
+    panel.grid.minor.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1),
+    panel.spacing.x = unit(1.5, "lines"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 15),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 15),
+    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+  ) +
+  labs(
+    title = "",
+    x = "Absolute Error in Single-source Sample (years)",
+    y = "Absolute Error in Mixture (years)"
+  )
+
+ggsave(paste0(results_path,"/Age_single_source_pearson_corr_simulations_01-10-2025.png"), 
+       age_ss_plot, width = 10, height = 8, dpi = 600, bg = "white")
 
 
 
