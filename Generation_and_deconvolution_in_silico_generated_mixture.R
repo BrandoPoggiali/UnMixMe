@@ -1089,17 +1089,18 @@ for (n in 1:nrow(random_pairs)){
                                         beta_offender_55_ratio,
                                         beta_offender_55_ratio)
       predicted_age_mixture <- DNAmAge(df_for_prediction, clocks = c("BLUP", "EN", "Horvath", "skinHorvath"))
-      
+      ae_predicted_age_mixture <- abs(predicted_age_mixture[1,-1] - predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
       if (i ==1 ){
-        predicted_age_mixture_mean <- predicted_age_mixture[1,-1]
+        predicted_age_mixture_mean <- ae_predicted_age_mixture
       } else {
-        predicted_age_mixture_mean <- predicted_age_mixture_mean + predicted_age_mixture[1,-1]
+        predicted_age_mixture_mean <- predicted_age_mixture_mean + ae_predicted_age_mixture
       }
   }
         
     #Calculate age gap and age in single-source samples
     age_gap <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == victim_name,"Age"] - predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
-    predicted_age_ss <- predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,c("BLUP", "EN", "Horvath", "skinHorvath")]
+    predicted_age_ss <- abs(predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,c("BLUP", "EN", "Horvath", "skinHorvath")] -
+      predicted_age_metadata_2021[predicted_age_metadata_2021$Sample_ID == offender_name,"Age"])
     colnames(predicted_age_ss) <- c("BLUP_ss", "EN_ss", "Horvath_ss", "skinHorvath_ss")
     info_pair <- cbind(age_gap, predicted_age_ss, predicted_age_mixture_mean)
     
@@ -1107,6 +1108,117 @@ for (n in 1:nrow(random_pairs)){
     
     }
   
-table_pred_age_main_contr
+table_pred_age_main_contr[, c(6:9)] <- table_pred_age_main_contr[, c(6:9)] / 3
 
-saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
+saveRDS(table_pred_age_main_contr, paste0(results_path, "Age_gap_and_ss_for_pearson_corr_simulations_Longitudinal_data_01-10-2025.rds"))
+
+table_pred_age_main_contr_long <- table_pred_age_main_contr[, -c(2,3,4,5)] %>%
+  pivot_longer(cols = -c(age_gap),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+#calculate correlation per clock
+cor_df <- table_pred_age_main_contr_long %>%
+  group_by(Clock) %>%
+  summarise(
+    cor_res = list(cor.test(age_gap, Errors, method = "pearson")),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    r = sapply(cor_res, function(x) round(x$estimate, 2)),
+    p = sapply(cor_res, function(x) signif(x$p.value, 3)),
+    label = paste0("r = ", r, ", p = ", p)
+  )
+
+# Choose where to place labels (adjust y/x as needed)
+cor_df$x <- -0.5    # for example, left side
+cor_df$y <- 19   # near the top
+
+# Factor levels for ratio (legend order)
+table_pred_age_main_contr_long$Clock <- paste(table_pred_age_main_contr_long$Clock, "clock")
+
+# Plot
+library(ggpubr) 
+age_gap_plot <- ggplot(
+  table_pred_age_main_contr_long,
+  aes(x = age_gap, y = Errors)
+) +
+  geom_point(size = 2) +
+  facet_wrap(~ Clock) +
+  geom_smooth(method = "lm", se = FALSE, color = "#63a7ff", size=1.5) +
+  geom_text(
+    data = cor_df,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE,
+    size = 3.9,
+    hjust = 0
+  ) + 
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 20)) +
+  scale_x_continuous(expand = c(0.1, 0.1)) +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.text.x = element_text(angle = -45, vjust = 0.5, hjust = 0),
+    legend.position = "top",
+    panel.grid.major.x = element_line(color = "grey", size = 0.4),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "lightgrey"),
+    panel.grid.minor.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, size = 1),
+    panel.spacing.x = unit(1.5, "lines"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 15),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 15),
+    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+  ) +
+  labs(
+    title = "",
+    x = "Chronological Age Difference (years)",
+    y = "Absolute Error (years)"
+  )
+age_gap_plot
+
+ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_01-10-2025.png"), 
+       age_gap_plot, width = 10, height = 8, dpi = 600, bg = "white")
+
+
+#### 9. Test impact of age prediction in single source sample 1:10 using Pearson correlation ----------------
+#The dataset used in this section is the same of that one generated in point 8
+
+ss_error_age <- table_pred_age_main_contr[, -1] %>%
+  rename(
+    Age_BLUP = BLUP_ss,
+    Age_EN = EN_ss,
+    Age_Horvath = Horvath_ss,
+    Age_skinHorvath = skinHorvath_ss,
+    Error_BLUP = BLUP,
+    Error_EN = EN,
+    Error_Horvath = Horvath,
+    Error_skinHorvath = skinHorvath
+  )
+
+
+ss_error_age_long <- ss_error_age %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c(".value", "Clock"),
+    names_sep = "_"
+  )
+
+
+cor_df <- ss_error_age_long %>%
+  group_by(Clock) %>%
+  summarise(
+    cor_res = list(cor.test(Age, Error, method = "pearson")),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    r = sapply(cor_res, \(x) round(x$estimate, 2)),
+    p = sapply(cor_res, \(x) signif(x$p.value, 3)),
+    label = paste0("r = ", r, ", p = ", p)
+  )
+
+
+
