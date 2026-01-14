@@ -18,11 +18,13 @@ library(writexl)
 library(tibble)
 library(tidyr)
 library(tidyverse)
+library(ggplot2)
 
 #Set paths
 #idat_dir <- "N:/projects/age_epic_array_blood_stains_4103/local_data"
-EPIC_bloodstain_path <- "mnt/ngs/projects/age_epic_array_blood_stains_4103/users/lfw156"
-#annotation_files_path <- "G:/FAELLES/Dokumenter/BRP/5_Projects/EPIC_annotations_files/"
+EPIC_bloodstain_path <- "/mnt/ngs/projects/age_epic_array_blood_stains_4103/users/lfw156"
+annotation_files_path <- "/home/ri-domain.local/lfw156/EPIC_annotations_files/"
+brando_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156"
 results_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results/4_impact_of_variables/"
 
 #### 2. Upload saved data (If you do not need to upload saved data skip this step)--------------------------------------------
@@ -251,7 +253,7 @@ for (n in 1:nrow(random_pairs)){
 saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
 saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_11-09-2025.rds"))
 
-
+df <- readRDS(paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
 median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_11-09-2025.rds"))
 
 ## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
@@ -330,13 +332,13 @@ diff_beta_precision_plot <- ggplot(
     plot.margin = unit(c(1, 1, 1, 1.5), "cm")  # top, right, bottom, left
   ) +
   labs(title = "",
-       x = "DNAm Technology Error (|Δβ| Between Replicates)",
+       x = "DNAm Technical Noise (|Δβ| Between Replicates)",
        y = "Median |Δβ|",
        color = "Suspect-to-Victim Ratio")
 
 diff_beta_precision_plot
 
-ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_precision_analysis_11-09-2025.png"), 
+ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_precision_analysis_02-10-2025.png"), 
        diff_beta_precision_plot, width = 11, height = 7, dpi = 600, bg = "white")
 
 
@@ -369,7 +371,7 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
   facet_wrap(~ Clock) +  # Facet by the "Group" variable
   theme_minimal() +  # Use a minimal theme
   labs(title = "",
-       x = "DNAm Technology Error (|Δβ| Between Replicates)",
+       x = "DNAm Technical Noise (|Δβ| Between Replicates)",
        y = "MAE (years)",
        color = "Suspect-to-Victim Ratio") +
   coord_cartesian(ylim = c(0, 25)) +
@@ -397,7 +399,8 @@ plot_tecn_err <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio,
   )
 
 plot_tecn_err
-ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_13-09-2025.png"), 
+
+ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_02-10-2025.png"), 
        plot_tecn_err, width = 11, height = 7, dpi = 600, bg = "white", limitsize = FALSE)
 
 
@@ -1112,6 +1115,8 @@ table_pred_age_main_contr[, c(6:9)] <- table_pred_age_main_contr[, c(6:9)] / 3
 
 saveRDS(table_pred_age_main_contr, paste0(results_path, "Age_gap_and_ss_for_pearson_corr_simulations_Longitudinal_data_01-10-2025.rds"))
 
+table_pred_age_main_contr <- readRDS(paste0(results_path, "Age_gap_and_ss_for_pearson_corr_simulations_Longitudinal_data_01-10-2025.rds"))
+
 table_pred_age_main_contr_long <- table_pred_age_main_contr[, -c(2,3,4,5)] %>%
   pivot_longer(cols = -c(age_gap),
                names_to = "Clock", 
@@ -1133,6 +1138,7 @@ cor_df <- table_pred_age_main_contr_long %>%
 # Choose where to place labels (adjust y/x as needed)
 cor_df$x <- -0.5    # for example, left side
 cor_df$y <- 19   # near the top
+cor_df$Clock <- paste(cor_df$Clock, "clock")
 
 # Factor levels for ratio (legend order)
 table_pred_age_main_contr_long$Clock <- paste(table_pred_age_main_contr_long$Clock, "clock")
@@ -1159,7 +1165,7 @@ age_gap_plot <- ggplot(
   theme(
     strip.text = element_text(size = 12, face = "bold"),
     axis.text = element_text(size = 12),
-    axis.text.x = element_text(angle = -45, vjust = 0.5, hjust = 0),
+    axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0),
     legend.position = "top",
     panel.grid.major.x = element_line(color = "grey", size = 0.4),
     panel.grid.minor.x = element_blank(),
@@ -1180,7 +1186,7 @@ age_gap_plot <- ggplot(
   )
 age_gap_plot
 
-ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_01-10-2025.png"), 
+ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_02-11-2025.png"), 
        age_gap_plot, width = 10, height = 8, dpi = 600, bg = "white")
 
 
@@ -1268,4 +1274,52 @@ ggsave(paste0(results_path,"/Age_single_source_pearson_corr_simulations_01-10-20
        age_ss_plot, width = 10, height = 8, dpi = 600, bg = "white")
 
 
+
+
+#### 10. Check missing CpGs EPIC v1.0 ------------------------------------------------
+Zhou_probe_annotation_EPIC_v1 <- read_tsv(paste0(annotation_files_path, "EPIC+.hg38.manifest.tsv.gz")) #Two different annotation files, this one contains annotation of probes with probes specification.
+missing_df <- data.frame(matrix(1, ncol=4))
+colnames(missing_df) <- c("BLUP", "EN", "Horvath", "skinHorvath")
+
+sample <- colnames(beta_values_autosomal_cg_noNAs)[1]
+beta_values_autosomal_cg_noNAs <- data.frame(RowNames = rownames(beta_values_autosomal_cg_noNAs), beta_values_autosomal_cg_noNAs)
+cpgs_missing_analysis <- cpgs_missing_analysis[c(1,4, 7,8)]
+
+cpgs.missing <- checkClocks(beta_values_autosomal_cg_noNAs)
+missing_df[1,] <- c(length(cpgs.missing[[8]]), length(cpgs.missing[[9]]),
+                    length(cpgs.missing[[1]]), length(cpgs.missing[[4]]))
+
+
+rownames(missing_df) <- "N. of missing cpgs" 
+
+missing_df <- data.frame(RowNames = rownames(missing_df), missing_df)
+write_xlsx(missing_df, paste0(brando_path, "/Results/2_Age_prediction/Missing_CpGs_clocks_EPICv1.xlsx"))
+
+
+Zhou_probe_annotation_EPIC_v1$Probe_ID <- substr(Zhou_probe_annotation_EPIC_v1$Probe_ID, 1, 10)
+
+#Missing CpG BLUP
+319607 - sum(coefBLUP$CpGmarker %in% Zhou_probe_annotation_EPIC_v1$Probe_ID)
+#Missing CpG EN
+514 - sum(coefEN$CpGmarker %in% Zhou_probe_annotation_EPIC_v1$Probe_ID)
+#Missing CpG Horvath
+353 - sum(coefHorvath$CpGmarker %in% Zhou_probe_annotation_EPIC_v1$Probe_ID)
+#Missing CpG skinHorvath
+391 - sum(coefSkin$CpGmarker %in% Zhou_probe_annotation_EPIC_v1$Probe_ID)
+
+Zhou_probe_annotation_EPIC_v2 <- read_tsv(paste0(annotation_files_path, "EPICv2.hg38.manifest.tsv.gz"))
+Zhou_probe_annotation_EPIC_v2$Probe_ID <- substr(Zhou_probe_annotation_EPIC_v2$Probe_ID, 1, 10)
+
+#Missing CpG BLUP
+319607 - sum(coefBLUP$CpGmarker %in% Zhou_probe_annotation_EPIC_v2$Probe_ID)
+#Missing CpG EN
+514 - sum(coefEN$CpGmarker %in% Zhou_probe_annotation_EPIC_v2$Probe_ID)
+#Missing CpG Horvath
+353 - sum(coefHorvath$CpGmarker %in% Zhou_probe_annotation_EPIC_v2$Probe_ID)
+#Missing CpG skinHorvath
+391 - sum(coefSkin$CpGmarker %in% Zhou_probe_annotation_EPIC_v2$Probe_ID)
+
+cpgs.missing <- checkClocks(Zhou_probe_annotation_EPIC_v1[,"Probe_ID"])
+c(length(cpgs.missing[[8]]), length(cpgs.missing[[9]]),
+                    length(cpgs.missing[[1]]), length(cpgs.missing[[4]]))
 

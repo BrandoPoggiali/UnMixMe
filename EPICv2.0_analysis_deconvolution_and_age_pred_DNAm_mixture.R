@@ -39,7 +39,7 @@ dimsesameDataCache() #In case you install or update SeSAMe
 idat_dir <- "G:/FAELLES/Dokumenter/BRP/local_data"
 brando_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156"
 results_path <- "/mnt/ngs/projects/age_prediction_EPICv2_DNA_mixture/users/lfw156/Results"
-annotation_files_path <- "/mnt/ngs/FAELLES/Dokumenter/BRP/5_Projects/EPIC_annotations_files/"
+annotation_files_path <- "/home/ri-domain.local/lfw156/EPIC_annotations_files/"
 
 setwd(brando_path)
 
@@ -373,6 +373,9 @@ write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolut
 saveRDS(df_reconstructured_DNAm_profile, paste0(brando_path, "/Reconstructed_beta_values_age_pred_DNAm_mixture_02-09-2025.rds"))
 
 ## Result tables creation
+write_xlsx(metadata_AE_pred_age, paste0(results_path, "/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_02-09-2025.xlsx"))
+
+
 AE_predicted_age <- metadata_AE_pred_age[, c(1, 14, 15, 16, 17)]
 AE_predicted_age$Mixture_type <- substring(AE_predicted_age$Sample_name, 1, nchar(AE_predicted_age$Sample_name) - 2)
 
@@ -407,7 +410,7 @@ colnames(MAE_predicted_age)[7] <- "Ratio"
 write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_02-09-2025.xlsx"))
 
 
-##Check missing CpGs
+##Check missing CpGs EPIC v2.0
 missing_df <- data.frame(matrix(nrow=ncol(betas_cg_autosomal_collps_no_NAs), ncol=4))
 colnames(missing_df) <- c("BLUP", "EN", "Horvath", "skinHorvath")
 
@@ -521,6 +524,9 @@ max(median_delta_betas_DNAm_profiles_long$Errors)
 pair_colors <- c("M1-F1" = "#028FFB", "M2-F2" = "#FB6E02")
 ref_colors <- c("M1" = "#4DB1FE", "M2" = "#FD9341")
 
+
+
+
 MAE_plot <- ggplot(
   median_delta_betas_DNAm_profiles_long,
   aes(
@@ -533,7 +539,17 @@ MAE_plot <- ggplot(
 ) +
   geom_point(size = 3, position = position_dodge(width = 0.25)) +
   
-  facet_wrap(~ Clock) +
+  facet_wrap(
+    ~ Clock,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock" = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
+        "EN clock"    = "EN clock (514 CpGs)",
+        "BLUP clock"     = "BLUP clock (319,607 CpGs)"
+      )
+    )
+  ) +
   coord_cartesian(ylim = c(0, 0.18)) +
   theme_minimal() +
   
@@ -572,7 +588,7 @@ MAE_plot <- ggplot(
   xlab("Suspect-to-Victim Ratio") +
   ylab("Median |Δβ|")
 
-ggsave(paste0(results_path,"/2_Age_prediction/Median_delta_betas_reconstructed_DNAm_profiles_02-09-2025.png"), 
+ggsave(paste0(results_path,"/2_Age_prediction/Median_delta_betas_reconstructed_DNAm_profiles_R_13-01-2026.png"), 
        MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
 
 ##### 8. Age prediction in single source samples and age prediction from mixture using single-source sample as reference-----------------------------------------------------
@@ -655,7 +671,9 @@ write_xlsx(MAE_predicted_age, paste0(results_path, "/2_Age_prediction/Mean_Absol
 
 
 #### 9. Plotting MAE for different DNA ratio (Plot for publication) ------------------------------------------
-Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_ss_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
+#This code can be used for Figure 3 and Supplementary Figure 2, you just need to cahnge the input
+
+Predicted_age <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Mean_Absolute_errors_predicted_age_DNA_mixtures_STR_ratio_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
 Predicted_age_single_source <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_single_sources_02-09-2025.xlsx'))
 colnames(Predicted_age)[7] <- "Theoretical_ratio"
 Predicted_age <- Predicted_age[,-6]
@@ -703,44 +721,128 @@ hline_data$Reference <- hline_data$color  # Will be "AA" and "AC"
 pair_colors <- c("M1-F1" = "#028FFB", "M2-F2" = "#FB6E02")
 ref_colors <- c("M1" = "#4DB1FE", "M2" = "#FD9341")
 
-MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color = Pair, group = Pair)) +
-  # Main lines
-  geom_line(size = 1.1) +
-  geom_point(size = 2) +
-  
-  # Horizontal dashed lines (color fixed manually, linetype mapped to create legend)
-  # geom_hline(data = hline_data,
-  #            aes(yintercept = AE, linetype = Reference),
-  #            color = NA,  # Prevent ggplot from coloring
-  #            size = 0.6,
-  #            show.legend = TRUE) +
-  # # Add a second, hidden layer to apply the colors manually
-  # geom_hline(data = hline_data,
-  #            aes(yintercept = AE, linetype = Reference),
-  #            color = ref_colors[hline_data$Reference],
-  #            size = 0.6,
-  #            inherit.aes = FALSE,
-  #            show.legend = FALSE) +
-  
-  # Facet etc.
-  facet_wrap(~ Clock) +
-  coord_cartesian(ylim = c(0, 20)) +
-  theme_minimal() +
-  
-  # Color only for Pair
-  scale_color_manual(
-    values = pair_colors,
-    name = "Mixture"
+
+## To add the absolute error we need to add all AEs
+Predicted_age_abs <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Absolute_errors_predicted_age_DNA_mixtures_02-09-2025.xlsx')) #ermove or add ss based on the type of plot you want do make
+#Predicted_age_abs <- read_xlsx(path = paste0(brando_path,'/Results/2_Age_prediction/Predicted_age_DNA_mixtures_02-09-2025.xlsx')) #remove or add ss based on the type of plot you want do make
+Predicted_age_abs <- Predicted_age_abs[, c(1, 5, 14, 15, 16, 17)]
+
+Predicted_age_abs_long <- Predicted_age_abs %>%
+  pivot_longer(
+    cols = -c(Sample_name, Individuals),
+    names_to = "ClockRep",
+    values_to = "AE"
+  ) 
+
+Predicted_age_abs_long$Mixture_type <- substring(Predicted_age_abs_long$Sample_name, 1, nchar(Predicted_age_abs_long$Sample_name) - 2)
+Predicted_age_abs_long$Mixture_type <- factor(Predicted_age_abs_long$Mixture_type, levels=c("AA_AB_1_1",	"AA_AB_2_1",	"AA_AB_4_1",	"AA_AB_10_1",	"AA_AB_1_2",	"AA_AB_1_4",	"AA_AB_1_10",	"AE_AF_1_1",	
+                                                                                  "AE_AF_2_1",	"AE_AF_4_1",	"AE_AF_10_1",	"AE_AF_1_2",	"AE_AF_1_4",	"AE_AF_1_10"))
+
+Predicted_age_abs_long$Replicate <- substr(Predicted_age_abs_long$Sample_name, 
+                                      nchar(Predicted_age_abs_long$Sample_name), nchar(Predicted_age_abs_long$Sample_name))
+
+Predicted_age_abs_long$Theoretical_ratio <- substr(Predicted_age_abs_long$Sample_name, 7, nchar(Predicted_age_abs_long$Sample_name)-2)
+
+Predicted_age_abs_long$Theoretical_ratio <- gsub("_", ":", Predicted_age_abs_long$Theoretical_ratio)
+
+Predicted_age_abs_long$Theoretical_ratio <- factor(
+  Predicted_age_abs_long$Theoretical_ratio,
+  levels = c("10:1", "4:1", "2:1", "1:1","1:2", "1:4", "1:10")
+)
+
+Predicted_age_abs_long$Pair <- substr(Predicted_age_abs_long$Mixture_type, 1, 5)
+Predicted_age_abs_long$Pair <- gsub("_", " ", Predicted_age_abs_long$Pair)
+
+# Apply the same recoding you used
+Predicted_age_abs_long$Mixture_type <- gsub("AA_AB", "M1_F1", Predicted_age_abs_long$Mixture_type)
+Predicted_age_abs_long$Mixture_type <- gsub("AC_AD", "M2_F2", Predicted_age_abs_long$Mixture_type)
+
+Predicted_age_abs_long$Pair <- gsub("AA AB", "M1 F1", Predicted_age_abs_long$Pair)
+Predicted_age_abs_long$Pair <- gsub("AE AF", "M2 F2", Predicted_age_abs_long$Pair)
+Predicted_age_abs_long$Pair <- gsub(" ", "-", Predicted_age_abs_long$Pair)
+
+colnames(Predicted_age_abs_long)[3] <- "Clock"
+#add the code below if using comprison with ss
+#Predicted_age_abs_long$Clock <- substr(Predicted_age_abs_long$Clock, 4, nchar(Predicted_age_abs_long$Clock))
+Predicted_age_abs_long$Clock <- gsub("AE_", "", Predicted_age_abs_long$Clock)
+Predicted_age_abs_long$Clock <- paste(Predicted_age_abs_long$Clock, "clock")
+
+
+AE_bar <- Predicted_age_abs_long %>%
+  group_by(Pair, Theoretical_ratio, Clock) %>%
+  summarise(
+    ymin = AE[1],
+    ymax = AE[2],
+    .groups = "drop"
+  )
+
+
+#Create the plot using both dataset with MAE and AE
+MAE_plot <- ggplot() +
+  # 1) Background reference lines (draw FIRST so they stay behind)
+  geom_hline( #remove this part if you do not want the AE lines for single source samples
+    data = hline_data,
+    aes(yintercept = AE, linetype = Reference),
+    color = NA,              # keep this to avoid ggplot mapping color
+    linewidth = 0.55,
+    alpha = 0.6,            # transparency for the background lines
+    show.legend = TRUE
+  ) +
+  geom_hline(
+    data = hline_data,
+    aes(yintercept = AE, linetype = Reference),
+    color = ref_colors[hline_data$Reference],
+    linewidth = 0.55,
+    alpha = 0.6,            # transparency for the colored lines
+    inherit.aes = FALSE,
+    show.legend = FALSE
   ) +
   
-  # # Linetype for Reference — colors added in override.aes
-  # scale_linetype_manual(
-  #   values = c("M1" = "dashed", "M2" = "dashed"),
-  #   name = "Single-Source Sample"
-  # ) +
+  # Bar connecting the two absolute-error measurements
+  geom_errorbar(
+    data = AE_bar,
+    aes(
+      x = Theoretical_ratio,
+      ymin = ymin,
+      ymax = ymax,
+      color = Pair
+    ),
+    alpha = 0.55,
+    width = 0.18,
+    linewidth = 0.7,
+    position = position_dodge(width = 0.35)
+  ) +
   
-  # Manually override legend aesthetics to inject color into dashed lines
-  guides(
+  # Mean point
+  geom_point(
+    data = Predicted_age_long,
+    aes(
+      x = Theoretical_ratio,
+      y = MAE,
+      color = Pair
+    ),
+    size = 2.5,
+    position = position_dodge(width = 0.35)
+  ) +
+  # Linetype for Reference — colors added in override.aes
+  scale_linetype_manual(
+    values = c("M1" = "dashed", "M2" = "dashed"),
+    name = "Single-Source Sample"
+  ) +
+  facet_wrap(
+    ~ Clock,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock" = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
+        "EN clock"    = "EN clock (514 CpGs)",
+        "BLUP clock"     = "BLUP clock (319,607 CpGs)"
+      )
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 20)) +
+  theme_minimal() +
+  guides( #remove this part if you do not want the AE lines for single source samples
     color = guide_legend(order = 1),
     linetype = guide_legend(
       order = 2,
@@ -750,29 +852,109 @@ MAE_plot <- ggplot(Predicted_age_long, aes(x = Theoretical_ratio, y = MAE, color
       )
     )
   ) +
+  scale_color_manual(values = pair_colors, name = "Mixture") +
   
-  # Theme settings
   theme(
     strip.text = element_text(size = 12, face = "bold"),
     axis.text = element_text(size = 12),
     axis.text.x = element_text(angle = -45, vjust = 0, hjust = 0.1),
     legend.position = "top",
-    panel.grid.major.x = element_line(color = "grey", size = 0.4),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.major.y = element_line(color = "lightgrey"),
-    panel.grid.minor.y = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, size = 1),
-    panel.spacing.x = unit(1.5, "lines"),
     axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 15),
-    legend.text = element_text(size = 14),
-    legend.title = element_text(size = 15),
-    plot.margin = unit(c(1, 1.5, 1, 1), "lines")
+    axis.title.y = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text  = element_text(size = 14)
   ) +
-  xlab("Suspect-to-Victim Ratio") + ylab("MAE (years)")
+  xlab("Suspect-to-Victim Ratio") +
+  ylab("MAE (years)")
 
-MAE_plot
 
 
-ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_ss_02-09-2025.png"), 
-       MAE_plot, width = 11, height = 7, dpi = 600, bg = "white")
+
+ggsave(paste0(results_path,"/2_Age_prediction/Plot_MAE_offender_in_DNA_mixtures_R_13-01-2025.png"), 
+       MAE_plot, width = 10.5, height = 7, dpi = 600, bg = "white")
+
+
+#### 10. Calculate proportion of Type I and II probes in epienetic clocks -------------
+Zhou_probe_annotation_EPIC_v2 <- read_tsv(paste0(annotation_files_path, "EPICv2.hg38.manifest.tsv.gz")) #Two different annotation files, this one contains annotation of probes with probes specification.
+Zhou_probe_annotation_EPIC_v2$Probe_ID <- substr(Zhou_probe_annotation_EPIC_v2$Probe_ID, 1, 10) 
+probes_type <- Zhou_probe_annotation_EPIC_v2[,c("Probe_ID", "type")]
+probes_type <- probes_type[!duplicated(probes_type$Probe_ID), ]
+
+chk <- checkClocks(betas_cg_autosomal_collps_no_NAs)
+
+#Create proportion of Type I and II for each plot
+clocks <- list(
+  BLUP      = coefBLUP$CpGmarker,
+  EN        = coefEN$CpGmarker,
+  Horvath = coefHorvath$CpGmarker,
+  SkinHorvath     = coefSkin$CpGmarker
+)
+
+prop_table <- lapply(names(clocks), function(clock_name) {
+  
+  cpgs <- clocks[[clock_name]]
+  
+  prop <- prop.table(
+    table(
+      probes_type$type[
+        probes_type$Probe_ID %in% cpgs
+      ]
+    )
+  )
+  
+  data.frame(
+    Clock     = clock_name,
+    ProbeType = names(prop),
+    Proportion = as.numeric(prop),
+    row.names = NULL
+  )
+}) |> bind_rows()
+
+#Plot in barplot
+type_of_probe_proportion_long <- prop_table %>%
+  mutate(
+    PercentLabel = paste0(round(Proportion * 100, 1), "%")
+  )
+
+type_of_probe_proportion_plot <- ggplot(
+  type_of_probe_proportion_long,
+  aes(
+    x    = Clock,
+    y    = Proportion,
+    fill = ProbeType
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = "fill"
+  ) +
+  geom_text(
+    aes(label = PercentLabel),
+    position = position_fill(vjust = 0.5),
+    size = 4,
+    color = "black"
+  ) +
+  theme_bw() +
+  xlab("Epigenetic clock") +
+  ylab("Relative proportion of CpG probes (%)") +
+  labs(fill = "Type of probe") +
+  scale_fill_manual(values = c("#7963bc", "#99B24D")) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    expand = c(0, 0)
+  ) +
+  theme(
+    axis.text.x = element_text(size= 11.5, angle = -45, vjust = 1, hjust = 0)
+  )
+
+ggsave(paste0(brando_path,"/Results/1_Quality_control/Type_of_probe_proportion_plot_13-01-2026.png"), 
+       type_of_probe_proportion_plot, width = 7, height = 5)
+
+
+
+
+
+
+
+
