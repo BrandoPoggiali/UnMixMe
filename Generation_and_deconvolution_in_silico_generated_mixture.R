@@ -155,7 +155,7 @@ for (n in 1:nrow(random_pairs)){
   for (i in c(1:3)){
     ratios <- c("1:1", "1:4", "1:10", "4:1", "10:1")
     #ratio <- "1:10"
-    tecn_err <- c(0, 0.005 , 0.01 , 0.02 , 0.03, 0.05, 0.10) 
+    tecn_err <- c(0, 0.01 , 0.025, 0.05, 0.1) 
     #err <- 0
     set.seed(f) 
     for (ratio in ratios) {
@@ -244,14 +244,14 @@ for (n in 1:nrow(random_pairs)){
     if (n == 1 & i == 1 & ratio == "10:1" & err == 0.10) {
       df <- table_pred_age_main_contr
     } else {
-      df[, c(3,4,5,6)] <- df[, c(3,4,5,6)] + table_pred_age_main_contr[, c(3,4,5,6)]
+      df <- rbind(df, table_pred_age_main_contr)
     }
   }
   }
 
 
-saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
-saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_11-09-2025.rds"))
+saveRDS(df, paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_R_16-01-2026.rds"))
+saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_R_16-01-2026.rds"))
 
 df <- readRDS(paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_11-09-2025.rds"))
 median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_11-09-2025.rds"))
@@ -403,6 +403,186 @@ plot_tecn_err
 ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_02-10-2025.png"), 
        plot_tecn_err, width = 11, height = 7, dpi = 600, bg = "white", limitsize = FALSE)
 
+#### 4. Revision: Test impact of technical variability (bar plots)------------------------------
+df <- readRDS(paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_R_16-01-2026.rds"))
+median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_16-01-2026.rds"))
+
+## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
+#Invert ratio
+median_betas_reconstructed_profile$Ratio <- paste0(median_betas_reconstructed_profile$Ratio, "_old")
+
+median_betas_reconstructed_profile$Ratio <- gsub("1:1_old", "1:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("1:10_old", "10:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("10:1_old", "1:10", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("1:4_old", "4:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("4:1_old", "1:4", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- factor(median_betas_reconstructed_profile$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+median_betas_reconstructed_profile_long <- median_betas_reconstructed_profile %>% 
+  pivot_longer(cols = -c(Ratio, Tecnical_error),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+# Factor levels for ratio (legend order)
+median_betas_reconstructed_profile_long$Ratio <- factor(
+  median_betas_reconstructed_profile_long$Ratio,
+  levels = c("10:1", "4:1", "2:1", "1:1", "1:2", "1:4", "1:10")
+)
+
+median_betas_reconstructed_profile_long$Clock <- paste(median_betas_reconstructed_profile_long$Clock, "clock")
+median_betas_reconstructed_profile_long$Tecnical_error_f <- factor(
+  median_betas_reconstructed_profile_long$Tecnical_error,
+  levels = c(0, 0.01, 0.025, 0.05, 0.10)
+)
+
+str(median_betas_reconstructed_profile_long)
+
+# Plot
+diff_beta_precision_plot <- ggplot(
+  median_betas_reconstructed_profile_long,
+  aes(
+    x = Tecnical_error_f,
+    y = Errors,
+    color = Ratio,
+    group = interaction(Tecnical_error_f, Ratio)
+  )
+) +
+  # Error bars (mean ± SD)
+  stat_summary(
+    fun.data = mean_sdl,
+    fun.args = list(mult = 1),
+    geom = "errorbar",
+    position = position_dodge(width = 0.6),
+    width = 0.25,
+    linewidth = 0.5
+  ) +
+  # Mean point
+  stat_summary(
+    fun = mean,
+    geom = "point",
+    position = position_dodge(width = 0.6),
+    size = 2
+  ) +
+  facet_wrap(
+    ~ Clock, ncol = 1,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock" = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
+        "EN clock"    = "EN clock (514 CpGs)",
+        "BLUP clock"     = "BLUP clock (319,607 CpGs)"
+      )
+    )) +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  labs(
+    x = "DNAm Technical Noise (|Δβ| Between Replicates)",
+    y = "Median |Δβ|",
+    color = "Suspect-to-Victim Ratio"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold", size = 13),
+    legend.position = "top",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+    panel.spacing.y = unit(1.2, "lines"),
+    plot.margin = unit(c(1, 1.5, 1, 1.5), "cm")
+  )
+
+
+ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_precision_analysis_R_16-01-2025.png"), 
+       diff_beta_precision_plot, width = 10, height = 8.5, dpi = 600, bg = "white")
+
+
+
+## Plotting age prediction accuracy in EPIC v2.0 precision analysis
+df <- df[df$Ratio != "Single_source",]
+
+#Invert ratio
+df$Ratio <- paste0(df$Ratio, "_old")
+
+df$Ratio <- gsub("1:1_old", "1:1", df$Ratio)
+df$Ratio <- gsub("1:10_old", "10:1", df$Ratio)
+df$Ratio <- gsub("10:1_old", "1:10", df$Ratio)
+df$Ratio <- gsub("1:4_old", "4:1", df$Ratio)
+df$Ratio <- gsub("4:1_old", "1:4", df$Ratio)
+df$Ratio <- factor(df$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+
+df_long <- df %>%
+  pivot_longer(cols = -c(Ratio, Tecnical_error),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+df_long$Clock <- paste(df_long$Clock, "clock")
+
+# Factor levels for ratio (legend order)
+df_long$Ratio <- factor(
+  df_long$Ratio,
+  levels = c("10:1", "4:1", "2:1", "1:1", "1:2", "1:4", "1:10")
+)
+
+str(df_long)
+
+
+df_long$Tecnical_error_f <- factor(
+  df_long$Tecnical_error,
+  levels = c(0, 0.01, 0.025, 0.05, 0.10)
+)
+
+plot_tecn_err <- ggplot(
+  df_long,
+  aes(
+    x = Tecnical_error_f,
+    y = Errors,              # or MAE
+    fill = Ratio,
+    color = Ratio,
+    group = interaction(Tecnical_error_f, Ratio)
+  )
+) +
+  geom_boxplot(
+    position = position_dodge2(width = 0.85, preserve = "single"),
+    width = 0.7,
+    color = "black",         # black box outlines
+    linewidth = 0.3,
+    outlier.alpha = 0.4,
+    outlier.size = 0.8
+  ) +
+  facet_wrap(
+    ~ Clock, ncol = 1,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock" = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
+        "EN clock"    = "EN clock (514 CpGs)",
+        "BLUP clock"     = "BLUP clock (319,607 CpGs)"
+      )
+    )) +
+  coord_cartesian(ylim = c(0, 25)) +
+  labs(
+    x = "DNAm Technical Noise (|Δβ| Between Replicates)",
+    y = "MAE (years)",
+    fill = "Suspect-to-Victim Ratio",
+    color = "Suspect-to-Victim Ratio"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold", size = 13),
+    legend.position = "top",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80"),
+    panel.spacing.y = unit(1.2, "lines"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+    plot.margin = unit(c(1, 1.5, 1, 1.5), "cm")
+  )
+
+
+ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_R_16-01-2025.png"), 
+       plot_tecn_err, width = 10, height = 8.5, dpi = 600, bg = "white", limitsize = FALSE)
+
+
+
 
 #### 5. Test impact of STR ratio calculation (cohort 63 individuals, Publication) -------------------------------
 
@@ -434,12 +614,14 @@ median_betas_reconstructed_profile <- data.frame(
   stringsAsFactors = FALSE
 )
 
+#checkClocks(betas_autosomal_cpgs_noNAs_2021) #Upload clocks
+
 for (n in 1:nrow(random_pairs)){
   victim_name <- random_pairs[n,][1]
   offender_name <- random_pairs[n,][2]
   #ratios <- c("1:1", "1:4", "1:10", "4:1", "10:1")
   ratios <- c("50:50", "20:80", "9.09090909:90.90909090", "80:20", "90.90909090:9.09090909")
-  STR_err <- c(-5, -3, -2, -1, 0, 1, 2, 3, 5)
+  STR_err <- c(-5, -2, 0, 2, 5)
   
   #random_signs <- sample(c(-1, 1), length(beta_values_autosomal_cg_noNAs$AF_0), replace = TRUE)
   #random_errors <- random_signs * 0.01
@@ -542,16 +724,15 @@ for (n in 1:nrow(random_pairs)){
   if (n == 1) {
     df <- table_pred_age_main_contr
   } else {
-    df[, c(3,4,5,6)] <- df[, c(3,4,5,6)] + table_pred_age_main_contr[, c(3,4,5,6)]
+    df <- rbind(df, table_pred_age_main_contr)
   }
   
 }
 
 
 #Divide by the total number of DNA mixture pair and save
-df[, c(3,4,5,6)] <- df[, c(3,4,5,6)]/32
-saveRDS(df, paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_09-01-2025.rds"))
-saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_15-09-2025.rds"))
+saveRDS(df, paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_R_17-01-2026.rds"))
+saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_R_17-01-2026.rds"))
 
 
 ## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
@@ -690,6 +871,206 @@ STR_plot <- ggplot(df_long, aes(x = Tecnical_error, y = MAE, color = Ratio, grou
 
 ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_15-09-2025.png"), 
        STR_plot, width = 11, height = 7, dpi = 600, bg = "white")
+
+
+#### 5. Revision: Test impact of technical variability (bar plots)------------------------------
+df <- readRDS(paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_R_17-01-2026.rds"))
+median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_R_17-01-2026.rds"))
+
+## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
+
+median_betas_reconstructed_profile$Ratio[median_betas_reconstructed_profile$Ratio == "50:50"] <- "1:1"
+median_betas_reconstructed_profile$Ratio[median_betas_reconstructed_profile$Ratio == "20:80"] <- "1:4"
+median_betas_reconstructed_profile$Ratio[median_betas_reconstructed_profile$Ratio == "80:20"] <- "4:1"
+median_betas_reconstructed_profile$Ratio[median_betas_reconstructed_profile$Ratio == "90.90909090:9.09090909"] <- "10:1"
+median_betas_reconstructed_profile$Ratio[median_betas_reconstructed_profile$Ratio == "9.09090909:90.90909090"] <- "1:10"
+
+median_betas_reconstructed_profile$Ratio <- factor(median_betas_reconstructed_profile$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+
+#Invert ratio
+median_betas_reconstructed_profile$Ratio <- paste0(median_betas_reconstructed_profile$Ratio, "_old")
+
+median_betas_reconstructed_profile$Ratio <- gsub("1:1_old", "1:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("1:10_old", "10:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("10:1_old", "1:10", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("1:4_old", "4:1", median_betas_reconstructed_profile$Ratio)
+median_betas_reconstructed_profile$Ratio <- gsub("4:1_old", "1:4", median_betas_reconstructed_profile$Ratio)
+
+median_betas_reconstructed_profile_long <- median_betas_reconstructed_profile %>% 
+  pivot_longer(cols = -c(Ratio, Tecnical_error),
+               names_to = "Clock", 
+               values_to = "Errors")
+
+median_betas_reconstructed_profile_long$Ratio <- factor(median_betas_reconstructed_profile_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+median_betas_reconstructed_profile_long$Clock <- paste(median_betas_reconstructed_profile_long$Clock, "clock")
+
+
+
+
+median_betas_reconstructed_profile_long$Tecnical_error_f <- factor(
+  median_betas_reconstructed_profile_long$Tecnical_error,
+  levels = c(-5, -2, 0, 2, 5)
+)
+
+str(median_betas_reconstructed_profile_long)
+
+# Plot
+beta_err_STR_plot_analysis <- ggplot(
+  median_betas_reconstructed_profile_long,
+  aes(
+    x = Tecnical_error_f,
+    y = Errors,
+    color = Ratio,
+    group = interaction(Tecnical_error_f, Ratio)
+  )
+) +
+  # Error bars: mean ± absolute error
+  stat_summary(
+    fun.data = function(x) {
+      m <- mean(x, na.rm = TRUE)
+      ae <- mean(abs(x - m), na.rm = TRUE)
+      data.frame(y = m, ymin = m - ae, ymax = m + ae)
+    },
+    geom = "errorbar",
+    position = position_dodge(width = 0.6),
+    width = 0.15,
+    linewidth = 0.4
+  ) +
+  # Mean point
+  stat_summary(
+    fun = mean,
+    geom = "point",
+    position = position_dodge(width = 0.6),
+    size = 2.5
+  ) +
+  facet_wrap(
+    ~ Clock, ncol = 1,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock"      = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "SkinHorvath clock (391 CpGs)",
+        "EN clock"           = "EN clock (514 CpGs)",
+        "BLUP clock"         = "BLUP clock (319,607 CpGs)"
+      )
+    )) +
+  coord_cartesian(ylim = c(0, 0.1)) +
+  labs(
+    x = "Error in Victim DNA Proportion (%)",
+    y = "Median |Δβ|",
+    color = "Suspect-to-Victim Ratio"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold", size = 13),
+    axis.text = element_text(size = 12),
+    axis.text.x = element_text(size = 12),
+    axis.title.x = element_text(size = 14, margin = margin(t = 10)),
+    axis.title.y = element_text(size = 14),
+    legend.position = "top",
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 15),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80"),
+    panel.grid.minor.y = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+    panel.spacing.y = unit(1.5, "lines"),
+    plot.margin = unit(c(1, 1.5, 1, 1.5), "cm")
+  )
+
+beta_err_STR_plot_analysis
+
+ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_STR_analysis_R_17-01-2025.png"), 
+       beta_err_STR_plot_analysis, width = 10, height = 8.5, dpi = 600, bg = "white")
+
+
+## Plotting age prediction accuracy in EPIC v2.0 precision analysis
+df <- df[df$Ratio != "Single_source",]
+
+df$Ratio[df$Ratio == "50:50"] <- "1:1"
+df$Ratio[df$Ratio == "20:80"] <- "1:4"
+df$Ratio[df$Ratio == "80:20"] <- "4:1"
+df$Ratio[df$Ratio == "90.90909090:9.09090909"] <- "10:1"
+df$Ratio[df$Ratio == "9.09090909:90.90909090"] <- "1:10"
+
+df$Ratio <- factor(df$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+
+#Invert ratio
+df$Ratio <- paste0(df$Ratio, "_old")
+
+df$Ratio <- gsub("1:1_old", "1:1", df$Ratio)
+df$Ratio <- gsub("1:10_old", "10:1", df$Ratio)
+df$Ratio <- gsub("10:1_old", "1:10", df$Ratio)
+df$Ratio <- gsub("1:4_old", "4:1", df$Ratio)
+df$Ratio <- gsub("4:1_old", "1:4", df$Ratio)
+
+df_long <- df %>%
+  pivot_longer(cols = -c(Ratio, Tecnical_error),
+               names_to = "Clock", 
+               values_to = "MAE")
+
+df_long$Ratio <- factor(df_long$Ratio, levels = c("10:1", "4:1", "1:1", "1:4", "1:10"))
+df_long$Clock <- paste(df_long$Clock, "clock")
+
+df_long$Tecnical_error_f <- factor(
+  df_long$Tecnical_error,
+  levels = c(-5, -2, 0, 2, 5)
+)
+
+#Plot
+plot_tecn_err_STR <- ggplot(
+  df_long,
+  aes(
+    x = Tecnical_error_f,
+    y = MAE,                     # <-- your column is MAE
+    fill = Ratio,
+    color = Ratio,
+    group = interaction(Tecnical_error_f, Ratio)
+  )
+) +
+  geom_boxplot(
+    position = position_dodge2(width = 0.85, preserve = "single"),
+    width = 0.7,
+    color = "black",             # black box outlines
+    linewidth = 0.3,
+    outlier.alpha = 0.4,
+    outlier.size = 0.8
+  ) +
+  facet_wrap(
+    ~ Clock, ncol = 1,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock"      = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "SkinHorvath clock (391 CpGs)",
+        "EN clock"           = "EN clock (514 CpGs)",
+        "BLUP clock"         = "BLUP clock (319,607 CpGs)"
+      )
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 25)) +
+  labs(
+    x = "Error in Victim DNA Proportion (%)",   # <-- change if you want the old x-label instead
+    y = "MAE (years)",
+    fill = "Suspect-to-Victim Ratio",
+    color = "Suspect-to-Victim Ratio"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold", size = 13),
+    legend.position = "top",
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_line(color = "grey80"),
+    panel.spacing.y = unit(1.2, "lines"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+    plot.margin = unit(c(1, 1.5, 1, 1.5), "cm")
+  )
+
+
+ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_R_17-01-2025.png"), 
+       plot_tecn_err_STR, width = 10, height = 8.5, dpi = 600, bg = "white", limitsize = FALSE)
+
+
 
 
 #### 6. Test impact of Age differences in absolute error of offender from DNA mixture 2021 Longitudinal Cohort (Boxplot, Publication) -------------------
