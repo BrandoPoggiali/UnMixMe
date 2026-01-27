@@ -405,7 +405,7 @@ ggsave(paste0(results_path,"Plot_tecnical_error_simulation_cohort_3_simulation_0
 
 #### 4. Revision: Test impact of technical variability (bar plots)------------------------------
 df <- readRDS(paste0(results_path, "Age_prediction_tecnology_err_10_simulations_Longitudinal_data_R_16-01-2026.rds"))
-median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_16-01-2026.rds"))
+median_betas_reconstructed_profile <- readRDS(paste0(results_path, "Median_betas_reconstructed_profile_R_16-01-2026.rds"))
 
 ## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
 #Invert ratio
@@ -467,7 +467,7 @@ diff_beta_precision_plot <- ggplot(
     labeller = labeller(
       Clock = c(
         "Horvath clock" = "Horvath clock (353 CpGs)",
-        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
+        "SkinHorvath clock"  = "skinHorvath clock (391 CpGs)",
         "EN clock"    = "EN clock (514 CpGs)",
         "BLUP clock"     = "BLUP clock (319,607 CpGs)"
       )
@@ -621,7 +621,7 @@ for (n in 1:nrow(random_pairs)){
   offender_name <- random_pairs[n,][2]
   #ratios <- c("1:1", "1:4", "1:10", "4:1", "10:1")
   ratios <- c("50:50", "20:80", "9.09090909:90.90909090", "80:20", "90.90909090:9.09090909")
-  STR_err <- c(-5, -2, 0, 2, 5)
+  STR_err <- c(-10, -5, 0, 5, 10)
   
   #random_signs <- sample(c(-1, 1), length(beta_values_autosomal_cg_noNAs$AF_0), replace = TRUE)
   #random_errors <- random_signs * 0.01
@@ -631,7 +631,7 @@ for (n in 1:nrow(random_pairs)){
     #Create mixture
     
     for (ratio in ratios){
-      print(paste(ratio, err))
+      print(paste(n, ratio, err))
       ratio_split <- strsplit(ratio, ":")
       ratio_victim_raw <- as.numeric(ratio_split[[1]][1])
       ratio_offender_raw <- as.numeric(ratio_split[[1]][2])
@@ -666,7 +666,7 @@ for (n in 1:nrow(random_pairs)){
       #print(paste(ratio_victim, ratio_offender))
       
       
-      if (ratio == "50:50" & err == -5) {
+      if (ratio == "50:50" & err == -10) { #or -5 substitute base on the analysis
         table_pred_age_main_contr <- data.frame(ratio = character(),
                                                 tecn_err = numeric(),
                                                 Horvath = numeric(),
@@ -731,8 +731,8 @@ for (n in 1:nrow(random_pairs)){
 
 
 #Divide by the total number of DNA mixture pair and save
-saveRDS(df, paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_R_17-01-2026.rds"))
-saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_R_17-01-2026.rds"))
+saveRDS(df, paste0(results_path, "Age_prediction_STR_ratio_err_simulations_Longitudinal_data_R_10_17-01-2026.rds"))
+saveRDS(median_betas_reconstructed_profile, paste0(results_path, "Median_betas_reconstructed_profile_STR_analysis_R_10_17-01-2026.rds"))
 
 
 ## Plotting median beta value difference reconstructed profile in EPIC v2.0 precision analysis
@@ -909,7 +909,7 @@ median_betas_reconstructed_profile_long$Clock <- paste(median_betas_reconstructe
 
 median_betas_reconstructed_profile_long$Tecnical_error_f <- factor(
   median_betas_reconstructed_profile_long$Tecnical_error,
-  levels = c(-5, -2, 0, 2, 5)
+  levels = c(-5, -2, 0, 2, 5) #c(-10, -5, 0, 5, 10)
 )
 
 str(median_betas_reconstructed_profile_long)
@@ -953,7 +953,7 @@ beta_err_STR_plot_analysis <- ggplot(
         "BLUP clock"         = "BLUP clock (319,607 CpGs)"
       )
     )) +
-  coord_cartesian(ylim = c(0, 0.1)) +
+  coord_cartesian(ylim = c(0, 0.2)) +
   labs(
     x = "Error in Victim DNA Proportion (%)",
     y = "Median |Δβ|",
@@ -980,7 +980,7 @@ beta_err_STR_plot_analysis <- ggplot(
 
 beta_err_STR_plot_analysis
 
-ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_STR_analysis_R_17-01-2025.png"), 
+ggsave(paste0(results_path,"/Median_delta_betas_reconstructed_DNAm_profiles_STR_analysis_R_10_17-01-2025.png"), 
        beta_err_STR_plot_analysis, width = 10, height = 8.5, dpi = 600, bg = "white")
 
 
@@ -1014,7 +1014,7 @@ df_long$Clock <- paste(df_long$Clock, "clock")
 
 df_long$Tecnical_error_f <- factor(
   df_long$Tecnical_error,
-  levels = c(-5, -2, 0, 2, 5)
+  levels = c(-10, -5, 0, 5, 10) #c(-5, -2, 0, 2, 5)
 )
 
 #Plot
@@ -1041,7 +1041,7 @@ plot_tecn_err_STR <- ggplot(
     labeller = labeller(
       Clock = c(
         "Horvath clock"      = "Horvath clock (353 CpGs)",
-        "skinHorvath clock"  = "SkinHorvath clock (391 CpGs)",
+        "skinHorvath clock"  = "skinHorvath clock (391 CpGs)",
         "EN clock"           = "EN clock (514 CpGs)",
         "BLUP clock"         = "BLUP clock (319,607 CpGs)"
       )
@@ -1067,7 +1067,7 @@ plot_tecn_err_STR <- ggplot(
   )
 
 
-ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_R_17-01-2025.png"), 
+ggsave(paste0(results_path,"Plot_STR_ratio_err_cohort_R_10_17-01-2025.png"), 
        plot_tecn_err_STR, width = 10, height = 8.5, dpi = 600, bg = "white", limitsize = FALSE)
 
 
@@ -1198,6 +1198,7 @@ df_long$Age_gap <- ifelse(df_long$Age_gap < 5, "<5", ">20")
 
 
 saveRDS(df_long, paste0(results_path, "Age_prediction_Age_gap_simulations_Longitudinal_data_22-07-2025.rds"))
+df_long <- readRDS(paste0(results_path, "Age_prediction_Age_gap_simulations_Longitudinal_data_22-07-2025.rds"))
 
 df_long$Ratio <- gsub("10:1", "1:10", df_long$Ratio)
 df_long$Age_gap <- gsub("<", "< ", df_long$Age_gap)
@@ -1237,7 +1238,7 @@ age_gap_plot_2 <- ggplot(df_long, aes(x = Ratio, y = MAE, fill = Age_gap)) +
     legend.position = "top"# Legend items
   )
 
-ggsave(paste0(results_path,"Plot_Age_difference_contributors_boxplot_22-07-2025.png"), 
+ggsave(paste0(results_path,"Plot_Age_difference_contributors_boxplot_R_17-01-2026.png"), 
        age_gap_plot_2, width = 10.5, height = 7, dpi = 600, bg = "white")
 
 #### 7. Test impact difference predicted age and chronological age from DNA mixture 2021 Longitudinal Cohort (Boxplot) ---------------------------
@@ -1531,7 +1532,16 @@ age_gap_plot <- ggplot(
   aes(x = age_gap, y = Errors)
 ) +
   geom_point(size = 2) +
-  facet_wrap(~ Clock) +
+  facet_wrap(
+    ~ Clock,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock"      = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "SkinHorvath clock (391 CpGs)",
+        "EN clock"           = "EN clock (514 CpGs)",
+        "BLUP clock"         = "BLUP clock (319,607 CpGs)"
+      )
+    )) +
   geom_smooth(method = "lm", se = FALSE, color = "#63a7ff", size=1.5) +
   geom_text(
     data = cor_df,
@@ -1567,7 +1577,7 @@ age_gap_plot <- ggplot(
   )
 age_gap_plot
 
-ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_02-11-2025.png"), 
+ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_R_17-01-2026.png"), 
        age_gap_plot, width = 10, height = 8, dpi = 600, bg = "white")
 
 
@@ -1575,7 +1585,7 @@ ggsave(paste0(results_path,"/Age_gap_pearson_corr_simulations_02-11-2025.png"),
 #The dataset used in this section is the same of that one generated in point 8
 
 ss_error_age <- table_pred_age_main_contr[, -1] %>%
-  rename(
+  dplyr::rename(
     Age_BLUP = BLUP_ss,
     Age_EN = EN_ss,
     Age_Horvath = Horvath_ss,
@@ -1587,8 +1597,14 @@ ss_error_age <- table_pred_age_main_contr[, -1] %>%
   )
 
 
+ss_error_age <- table_pred_age_main_contr[, -1] %>%
+  rename(
+    Age_BLUP = BLUP_ss)
+
+
+
 ss_error_age_long <- ss_error_age %>%
-  pivot_longer(
+  tidyr::pivot_longer(
     cols = everything(),
     names_to = c(".value", "Clock"),
     names_sep = "_"
@@ -1618,7 +1634,16 @@ cor_df$y <- 24   # near the top
 age_ss_plot <- ggplot(ss_error_age_long, aes(x = Age, y = Error)) +
   geom_point(size = 2) +
   geom_smooth(method = "lm", se = FALSE, color = "#63a7ff") +
-  facet_wrap(~ Clock) +
+  facet_wrap(
+    ~ Clock,
+    labeller = labeller(
+      Clock = c(
+        "Horvath clock"      = "Horvath clock (353 CpGs)",
+        "skinHorvath clock"  = "SkinHorvath clock (391 CpGs)",
+        "EN clock"           = "EN clock (514 CpGs)",
+        "BLUP clock"         = "BLUP clock (319,607 CpGs)"
+      )
+    )) +
   geom_text(
     data = cor_df,
     aes(x = x, y = y, label = label),
@@ -1651,7 +1676,7 @@ age_ss_plot <- ggplot(ss_error_age_long, aes(x = Age, y = Error)) +
     y = "Absolute Error in Mixture (years)"
   )
 
-ggsave(paste0(results_path,"/Age_single_source_pearson_corr_simulations_01-10-2025.png"), 
+ggsave(paste0(results_path,"/Age_single_source_pearson_corr_simulations_R_17-01-2026.png"), 
        age_ss_plot, width = 10, height = 8, dpi = 600, bg = "white")
 
 
