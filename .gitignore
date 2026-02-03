@@ -3,9 +3,9 @@
 *
 
 # But not these two R scripts
-!EPICv2.0_analysis_deconvolution_and_age_pred_DNAm_mixture.R
-
-!Generation_and_deconvolution_in_silico_generated_mixture.R
-
+!scripts/
+!scripts/EPICv2.0_analysis_deconvolution_and_age_pred_DNAm_mixture.R
+!scripts/Generation_and_deconvolution_in_silico_generated_mixture.R
+!README.md
 # Also allow the .gitignore file itself (good practice)
 !.gitignore
