@@ -28,10 +28,10 @@ The following function performs deconvolution of the offender DNA methylation pr
 ```r
 mixture_deconvolution <- function(beta_mixture, beta_victim,
                                   proportion_victim = 1,
-                                  proportion_offender = 1){
+                                  proportion_suspect = 1){
 
-  beta_offender <- (((proportion_victim + proportion_offender) * beta_mixture) -
-                    (proportion_victim * beta_victim)) / proportion_offender
+  beta_offender <- (((proportion_victim + proportion_suspect) * beta_mixture) -
+                    (proportion_victim * beta_victim)) / proportion_suspect
 
-  return(beta_offender)
+  return(beta_suspect)
 }
