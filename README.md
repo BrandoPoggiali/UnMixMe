@@ -27,8 +27,8 @@ The following function performs deconvolution of the offender DNA methylation pr
 
 ```r
 mixture_deconvolution <- function(beta_mixture, beta_victim,
-                                  proportion_victim = 1,
-                                  proportion_suspect = 1){
+                                  proportion_victim = 1, #Change victim proportion with that obtained from standard STR profiling
+                                  proportion_suspect = 1){ #Change suspect proportion with that obtained from standard STR profiling
 
   beta_suspect <- (((proportion_victim + proportion_suspect) * beta_mixture) -
                     (proportion_victim * beta_victim)) / proportion_suspect
