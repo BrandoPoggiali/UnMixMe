@@ -21,7 +21,7 @@ The repository is intentionally minimal and contains only the functions required
 
 ---
 
-## ⭐ Core function (used throughout the paper)
+## ⭐ UnMixMe (UnMix DNA Methylation profiles)
 
 The following function performs deconvolution of the offender DNA methylation profile from a two-person mixture (UnMixMe approach):
 
