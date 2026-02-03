@@ -1,8 +1,6 @@
 # DNA Methylation Mixture Deconvolution Scripts
 
-This repository contains lightweight R scripts used for the analysis of two-person DNA methylation mixtures in our forensic epigenetics study.
-
-The code implements the core computational steps described in:
+This repository contains the R scripts used for the analysis of two-person DNA methylation mixtures in our forensic epigenetics study:
 
 **Poggiali et al., Forensic Science International: Genetics (2026)**  
 DOI: https://doi.org/10.1016/j.fsigen.2026.103438
@@ -17,14 +15,7 @@ The repository is intentionally minimal and contains only the functions required
 
 ---
 
-## 📦 Repository structure
-
-.
-├── scripts/
-│ ├── EPICv2.0_analysis_deconvolution_and_age_pred_DNAm_mixture.R
-│ ├── Generation_and_deconvolution_in_silico_generated_mixture.R
-└── README.md
-
+## 📦 Scripts:
 - **EPICv2.0_analysis_deconvolution_and_age_pred_DNAm_mixture.R** → Analysis of the DNA mixtures generated in the laboratory  
 - **Generation_and_deconvolution_in_silico_generated_mixture.R** → Analysis of the in-silico DNA mixtures  
 
@@ -32,7 +23,7 @@ The repository is intentionally minimal and contains only the functions required
 
 ## ⭐ Core function (used throughout the paper)
 
-The following function performs deconvolution of the offender DNA methylation profile from a two-person mixture:
+The following function performs deconvolution of the offender DNA methylation profile from a two-person mixture (UnMixMe approach):
 
 ```r
 mixture_deconvolution <- function(beta_mixture, beta_victim,
