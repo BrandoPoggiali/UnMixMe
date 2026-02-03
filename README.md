@@ -30,7 +30,7 @@ mixture_deconvolution <- function(beta_mixture, beta_victim,
                                   proportion_victim = 1,
                                   proportion_suspect = 1){
 
-  beta_offender <- (((proportion_victim + proportion_suspect) * beta_mixture) -
+  beta_suspect <- (((proportion_victim + proportion_suspect) * beta_mixture) -
                     (proportion_victim * beta_victim)) / proportion_suspect
 
   return(beta_suspect)
